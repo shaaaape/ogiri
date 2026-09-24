@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14161b">
+  <title>オンライン大喜利</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- PeerJS（グローバル Peer を使うので module より先に通常読み込み） -->
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+
+  <!-- ===== トップ ===== -->
+  <section id="view-top" class="view" hidden>
+    <div class="top-wrap">
+      <h1 class="logo">オンライン大喜利</h1>
+      <p class="sub">通話しながら、みんなでフリップ大喜利</p>
+      <p id="fatal" class="fatal" hidden></p>
+
+      <div class="top-buttons">
+        <button id="btn-create" class="btn big primary" type="button">部屋を作る（MC）</button>
+        <button id="btn-show-join" class="btn big" type="button">参加する</button>
+        <button id="btn-show-stage" class="btn big ghost" type="button">ステージ画面（配信用）</button>
+      </div>
+
+      <form id="join-form" class="card form" hidden autocomplete="off">
+        <h2>参加する</h2>
+        <label>部屋コード（4文字）
+          <input id="join-code" class="code-input" maxlength="4" autocapitalize="characters" spellcheck="false" placeholder="例: AB7K">
+        </label>
+        <label>名前
+          <input id="join-name" maxlength="16" placeholder="例: たろう">
+        </label>
+        <p class="error" id="join-error"></p>
+        <button class="btn big primary" type="submit">入室する</button>
+      </form>
+
+      <form id="stage-form" class="card form" hidden autocomplete="off">
+        <h2>ステージ画面を開く</h2>
+        <label>部屋コード（4文字）
+          <input id="stage-code" class="code-input" maxlength="4" autocapitalize="characters" spellcheck="false" placeholder="例: AB7K">
+        </label>
+        <label class="check"><input type="checkbox" id="stage-chroma"> 背景を緑（クロマキー用）にする</label>
+        <label class="check"><input type="checkbox" id="stage-mute"> ステージではSEを鳴らさない</label>
+        <p class="error" id="stage-error"></p>
+        <button class="btn big primary" type="submit">開く</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===== MC画面 ===== -->
+  <section id="view-host" class="view" hidden>
+    <header class="host-header">
+      <div class="room-box">
+        <span class="room-label">部屋コード</span>
+        <span id="h-code" class="room-code">----</span>
+      </div>
+      <div class="host-header-btns">
+        <button id="h-copy-join" class="btn" type="button">参加用URLをコピー</button>
+        <button id="h-copy-stage" class="btn" type="button">ステージURLをコピー</button>
+      </div>
+      <div class="host-status">
+        <span id="h-net" class="net-badge warn">準備中…</span>
+        <span id="h-count" class="count">参加者 0人</span>
+      </div>
+    </header>
+
+    <main class="host-main">
+      <div class="host-left">
+        <section class="panel">
+          <h2>お題</h2>
+          <div id="h-now-topic" class="now-topic empty">（まだ出題していません）</div>
+          <div class="row">
+            <input id="h-topic-input" class="grow" placeholder="お題を入力して「出題」">
+            <button id="h-topic-send" class="btn primary" type="button">出題</button>
+          </div>
+          <label class="check"><input type="checkbox" id="h-auto-reset" checked> 出題時に全フリップを伏せ・挙手をリセット</label>
+          <div class="topic-list-box">
+            <div class="row between">
+              <span class="label">お題リスト（1行1お題・自動保存）</span>
+              <span id="h-topic-left" class="muted small"></span>
+            </div>
+            <textarea id="h-topic-list" rows="5" spellcheck="false"></textarea>
+            <button id="h-topic-random" class="btn" type="button">🎲 ランダム出題</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>参加者</h2>
+            <div class="bulk">
+              <button id="h-reveal-all" class="btn" type="button">全部公開</button>
+              <button id="h-hide-all" class="btn" type="button">全部伏せる</button>
+              <button id="h-clear-all" class="btn danger" type="button">全部クリア（次の回へ）</button>
+              <button id="h-hands-reset" class="btn" type="button">挙手リセット</button>
+            </div>
+          </div>
+          <p id="h-empty" class="muted">まだ誰も参加していません。「参加用URLをコピー」して友達に送りましょう。</p>
+          <div id="h-players" class="player-grid"></div>
+        </section>
+      </div>
+
+      <aside class="host-right">
+        <section class="panel">
+          <h2>シンキングタイマー</h2>
+          <div id="h-timer-display" class="timer-display">--</div>
+          <div class="row">
+            <input id="h-timer-sec" type="number" min="1" max="999" value="60" class="sec-input"> <span>秒</span>
+            <button id="h-timer-start" class="btn primary" type="button">スタート</button>
+            <button id="h-timer-stop" class="btn" type="button">停止</button>
+          </div>
+          <label class="check"><input type="checkbox" id="h-timer-jan" checked> 0秒で「ジャン」を鳴らす</label>
+        </section>
+
+        <section class="panel">
+          <h2>挙手順</h2>
+          <ol id="h-hands" class="hands-list"></ol>
+        </section>
+
+        <section class="panel">
+          <h2>SEパッド</h2>
+          <div id="h-se-builtin" class="se-grid"></div>
+          <div id="h-se-custom" class="se-grid custom"></div>
+          <label class="btn file-btn">＋ mp3を追加<input type="file" id="h-se-file" accept="audio/*,.mp3,.m4a,.wav,.ogg" multiple hidden></label>
+          <p class="muted small">追加したボタンは長押し（または×）で削除、✎で名前変更。1.5MB以下なら参加者の画面でも鳴ります。</p>
+          <div class="row">
+            <span>音量</span>
+            <input id="h-se-vol" type="range" min="0" max="100" class="grow">
+            <button id="h-se-mute" class="btn" type="button">🔊</button>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </section>
+
+  <!-- ===== 参加者画面 ===== -->
+  <section id="view-player" class="view" hidden>
+    <header class="p-header">
+      <span id="p-status" class="net-badge warn">接続しています…</span>
+      <button id="p-name" class="name-btn" type="button" title="タップで名前を変更">名前</button>
+      <span id="p-room" class="muted small"></span>
+      <span class="spacer"></span>
+      <span id="p-timer" class="p-timer" hidden></span>
+      <button id="p-mute" class="btn icon" type="button" title="SEのミュート">🔊</button>
+    </header>
+
+    <div id="p-topic" class="p-topic waiting">お題を待っています…</div>
+
+    <div id="p-flip-area" class="p-flip-area">
+      <div id="p-flip-wrap" class="flip-wrap">
+        <canvas id="p-canvas" class="flip-canvas"></canvas>
+        <div id="p-badge" class="flip-badge" hidden></div>
+        <div id="p-lock" class="flip-lock" hidden>提出済み<br><small>直すときは「書き直す」</small></div>
+      </div>
+    </div>
+
+    <div id="p-toolbar" class="p-toolbar">
+      <div class="tool-row">
+        <div id="p-mode" class="seg">
+          <button type="button" data-mode="draw" class="on">✏️ 手書き</button>
+          <button type="button" data-mode="text">🔤 文字</button>
+        </div>
+      </div>
+      <div id="p-draw-tools" class="tool-row tools">
+        <button type="button" class="tool swatch on" data-color="black" title="黒"><i style="background:#111111"></i></button>
+        <button type="button" class="tool swatch" data-color="red" title="赤"><i style="background:#e53935"></i></button>
+        <button type="button" class="tool swatch" data-color="blue" title="青"><i style="background:#1e5bd8"></i></button>
+        <span class="sep"></span>
+        <button type="button" class="tool width" data-width="4" title="細"><i style="width:6px;height:6px"></i></button>
+        <button type="button" class="tool width on" data-width="8" title="中"><i style="width:11px;height:11px"></i></button>
+        <button type="button" class="tool width" data-width="16" title="太"><i style="width:18px;height:18px"></i></button>
+        <span class="sep"></span>
+        <button type="button" id="p-eraser" class="tool text-tool" title="消しゴム">消しゴム</button>
+        <button type="button" id="p-undo" class="tool text-tool" title="1つ戻す">↶ 戻す</button>
+        <button type="button" id="p-clear" class="tool text-tool" title="全部消す">全消し</button>
+      </div>
+      <div id="p-text-tools" class="tool-row" hidden>
+        <textarea id="p-text" rows="3" maxlength="120" placeholder="ここに回答を入力（改行OK）"></textarea>
+      </div>
+      <div class="tool-row actions">
+        <button id="p-submit" class="btn primary grow" type="button">提出する</button>
+        <button id="p-hand" class="btn grow" type="button">✋ 挙手</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== ステージ画面 ===== -->
+  <section id="view-stage" class="view" hidden>
+    <div id="s-root" class="stage">
+      <div class="stage-top">
+        <div id="s-topic" class="s-topic"><span></span></div>
+        <div id="s-timer" class="s-timer" hidden></div>
+      </div>
+      <div id="s-grid" class="s-grid"><div id="s-grid-inner" class="s-grid-inner"></div></div>
+      <div id="s-waiting" class="s-waiting" hidden>参加者を待っています…</div>
+      <div id="s-spot" class="s-spot" hidden></div>
+      <div id="s-status" class="s-status">接続しています…</div>
+      <div id="s-audio-hint" class="s-audio-hint" hidden>クリックでSEを有効化</div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" hidden></div>
+</body>
+</html>
