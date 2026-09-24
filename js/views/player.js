@@ -1,11 +1,18 @@
 // 参加者画面
-import { Client } from '../net.js';
+import { Client, normalizeCode } from '../net.js';
 import { drawFlip, FLIP_W, FLIP_H, INK } from '../flip.js';
 import { sanitizeName, flipHasContent } from '../state.js';
 import * as se from '../se.js';
 
 const $ = (id) => document.getElementById(id);
 const LS_NAME = 'ogiri.name';
+// MC交代で新しいMCになるときに書くキー（host.js と同じもの）
+const LS_TOPICS = 'ogiri.topics';
+const SS_HOST_ROOM = 'ogiri.hostRoom';
+const SS_HOST_STATE = 'ogiri.hostState';
+const SS_USED = 'ogiri.usedTopics';
+const SS_PENDING = 'ogiri.handoverPending';
+const SS_PLAYER = 'ogiri.playerRoom';
 
 function toast(msg) {
   const el = $('toast');
@@ -39,6 +46,9 @@ export function startPlayerView({ code, name, clientId, onExit }) {
   let timer = { endsAt: null };
   let textTimer = null;
   let drawQueued = false;
+  let changingTo = null;   // MC交代中なら新しいMCの名前（つながり直したら null）
+  let takingOver = false;  // 自分が新しいMCになるところ
+  let lastStatus = 'connecting';
 
   const canvas = $('p-canvas');
   const textArea = $('p-text');
@@ -56,7 +66,21 @@ export function startPlayerView({ code, name, clientId, onExit }) {
   });
 
   function setStatus(st) {
+    lastStatus = st;
+    // 新しいMCにつながったら通常表示に戻す
+    if (st === 'connected') changingTo = null;
+    renderStatus();
+  }
+
+  function renderStatus() {
     const el = $('p-status');
+    // MC交代の予告を受けてから、新しいMCにつながるまで
+    if (changingTo != null) {
+      el.textContent = `MC交代中…（${changingTo}さんへ）`;
+      el.className = 'net-badge warn';
+      return;
+    }
+    const st = lastStatus;
     const map = {
       connecting: ['接続しています…', 'warn'],
       connected: ['接続中', 'ok'],
@@ -69,8 +93,14 @@ export function startPlayerView({ code, name, clientId, onExit }) {
   }
 
   function onData(msg) {
-    if (!msg || typeof msg !== 'object') return;
+    if (!msg || typeof msg !== 'object' || takingOver) return;
     switch (msg.t) {
+      case 'hostChanging':
+        changingTo = sanitizeName(msg.newHostName);
+        renderStatus();
+        toast(`MCが${changingTo}さんに交代します`);
+        break;
+      case 'handover': takeOver(msg); break;
       case 'state': applyState(msg); break;
       case 'se': se.playSE(msg.id); break;
       case 'seCustom': {
@@ -85,6 +115,80 @@ export function startPlayerView({ code, name, clientId, onExit }) {
         break;
       default: break;
     }
+  }
+
+  // ---- MCの交代：自分が新しいMCになる ----
+  // 受け取った状態を sessionStorage に書いて ?host=1 へ移動し、
+  // MC画面の「リロード復元」の仕組みで同じ部屋コードのホストとして立ち上がる
+  async function takeOver(msg) {
+    if (takingOver) return;
+    takingOver = true;
+    const t0 = Date.now();
+    client.send({ t: 'handoverAck' });
+    $('handover-title').textContent = 'MCを引き継ぎます…';
+    $('handover-sub').textContent = 'このあとMC画面に切り替わります';
+    $('handover-overlay').hidden = false;
+
+    const room = normalizeCode(msg.code).length === 4 ? normalizeCode(msg.code) : code;
+    const snap = msg.snapshot && typeof msg.snapshot === 'object' ? { ...msg.snapshot } : {};
+    snap.room = room;
+    // 自分は参加者から外す（挙手の順番は詰める。発表中ならステージも下げる）
+    snap.players = (Array.isArray(snap.players) ? snap.players : []).filter((p) => p && p.id !== clientId);
+    snap.players
+      .filter((p) => p.hand && p.hand.raised)
+      .sort((a, b) => (Number(a.hand.at) || 0) - (Number(b.hand.at) || 0))
+      .forEach((p, i) => { p.hand = { ...p.hand, order: i + 1 }; });
+    if (snap.stage && snap.stage.playerId === clientId) snap.stage = null;
+    // タイマーの終了時刻を自分の時計に合わせる
+    const sentAt = Number(msg.now);
+    if (snap.timer && snap.timer.endsAt && sentAt) {
+      snap.timer = { ...snap.timer, endsAt: Number(snap.timer.endsAt) + (Date.now() - sentAt) };
+    }
+
+    try {
+      try {
+        sessionStorage.setItem(SS_HOST_STATE, JSON.stringify(snap));
+      } catch (e) {
+        // 容量オーバー時はフリップの中身を省く
+        const blank = (f) => ({ mode: f && f.mode === 'text' ? 'text' : 'draw', strokes: [], text: '' });
+        const lite = {
+          ...snap,
+          players: snap.players.map((p) => ({ ...p, flip: blank(p.flip) })),
+          history: (Array.isArray(snap.history) ? snap.history : []).map((h) => ({ ...h, flip: blank(h && h.flip) })),
+        };
+        sessionStorage.setItem(SS_HOST_STATE, JSON.stringify(lite));
+      }
+      if (Array.isArray(msg.usedTopics)) sessionStorage.setItem(SS_USED, JSON.stringify(msg.usedTopics));
+      sessionStorage.setItem(SS_HOST_ROOM, room);
+      sessionStorage.setItem(SS_PENDING, '1');
+      sessionStorage.removeItem(SS_PLAYER);
+    } catch (e) {
+      console.warn('引き継ぎ状態の保存に失敗', e);
+    }
+
+    // お題リスト：前のMCの行を先に、自分の行を後ろに（重複は除く）
+    const lines = (s) => String(s || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    let myList = null;
+    try { myList = localStorage.getItem(LS_TOPICS); } catch (e) { /* 無視 */ }
+    const merged = [...new Set([...lines(msg.topicList), ...lines(myList)])];
+    if (merged.length) {
+      try { localStorage.setItem(LS_TOPICS, merged.join('\n')); } catch (e) { /* 無視 */ }
+    }
+
+    // 受信済みのカスタムSEを保存（新しいMC画面でも鳴らせる・配れるように）
+    try {
+      await Promise.race([
+        se.saveReceivedCustom(msg.customSE),
+        new Promise((r) => setTimeout(r, 4000)),
+      ]);
+    } catch (e) { /* 無視 */ }
+
+    // 受け取り確認が届くよう、少なくとも 300ms 待ってから移動
+    const wait = Math.max(0, 300 - (Date.now() - t0));
+    setTimeout(() => {
+      client.stop();
+      location.replace(location.pathname + '?host=1');
+    }, wait);
   }
 
   function sendFlip() {

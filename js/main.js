@@ -12,6 +12,7 @@ const LS_NAME = 'ogiri.name';
 const LS_CID = 'ogiri.clientId';
 const SS_PLAYER = 'ogiri.playerRoom';
 const SS_HOST = 'ogiri.hostRoom';
+const SS_HANDED = 'ogiri.handedOver'; // MCを渡した相手の名前（host.js が書く）
 
 function lsGet(k) {
   try { return localStorage.getItem(k); } catch (e) { return null; }
@@ -152,6 +153,14 @@ function goTop(prefillCode) {
     $('stage-code').value = prefillCode;
     joinForm.hidden = false;
     $('join-name').focus();
+  }
+
+  // MCを渡した直後：参加者として入り直せることを知らせる
+  const handed = sessionStorage.getItem(SS_HANDED);
+  if (handed != null) {
+    sessionStorage.removeItem(SS_HANDED);
+    $('join-note').textContent = `MCを「${handed}」さんに渡しました。名前を確認して「入室する」を押すと、参加者として入り直せます。`;
+    $('join-note').hidden = false;
   }
 }
 

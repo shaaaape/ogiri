@@ -372,6 +372,38 @@ export async function loadAllCustom() {
   return kept;
 }
 
+// MC交代で新しいMCになるとき：受信済みのカスタムSE（seCustom で届いたもの）を
+// IndexedDB とメタ情報に登録し、新しいMC画面でも鳴らせる・配れるようにする。
+// list: [{ id, name, mime }]。既に同じ id が登録済みなら上書きしない。登録した数を返す
+export async function saveReceivedCustom(list) {
+  if (!Array.isArray(list)) return 0;
+  const metas = listCustomMeta();
+  const have = new Set(metas.map((m) => m.id));
+  let added = 0;
+  for (const x of list) {
+    if (!x || typeof x.id !== 'string' || !x.id || have.has(x.id)) continue;
+    const buf = rawCustom.get(x.id);
+    if (!buf) continue; // 1.5MB超などで届いていないもの
+    const mime = typeof x.mime === 'string' && x.mime ? x.mime : 'audio/mpeg';
+    try {
+      await idb('readwrite', (st) => st.put(new Blob([buf], { type: mime }), x.id));
+    } catch (e) {
+      console.warn('カスタムSEの保存に失敗', e);
+      continue;
+    }
+    metas.push({
+      id: x.id,
+      name: String(x.name || 'SE').trim().slice(0, 20) || 'SE',
+      size: buf.byteLength,
+      mime,
+    });
+    have.add(x.id);
+    added++;
+  }
+  if (added) saveMeta(metas);
+  return added;
+}
+
 export function renameCustom(id, name) {
   const list = listCustomMeta();
   const m = list.find((x) => x.id === id);

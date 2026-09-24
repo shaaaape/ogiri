@@ -120,6 +120,7 @@ export class HostState {
       room: this.room,
       topic: this.topic,
       round: this.round,
+      seq: this.seq,
       stage: this.stage,
       history: this.history.map((h) => ({ ...h, flip: withFlips ? h.flip : emptyFlip(h.flip.mode) })),
       timer: this.timer,
@@ -136,6 +137,7 @@ export class HostState {
     if (!o || typeof o !== 'object') return;
     this.topic = typeof o.topic === 'string' ? o.topic : '';
     this.round = Number(o.round) || 0;
+    this.seq = Number(o.seq) || 0;
     if (o.timer && typeof o.timer === 'object') {
       this.timer = { endsAt: Number(o.timer.endsAt) || null, total: Number(o.timer.total) || 60 };
     }

@@ -26,6 +26,8 @@ export function startStageView({ code, chroma, mute }) {
   let offset = 0;
   let lastTopic = null;
   let current = null;      // { key, playerId, el, canvas, name, rev }
+  let changingTo = null;   // MC交代中なら新しいMCの名前（つながり直したら null）
+  let lastStatus = 'connecting';
 
   const client = new Client(code, {
     onOpen() {
@@ -34,7 +36,10 @@ export function startStageView({ code, chroma, mute }) {
     onData(msg) {
       if (!msg || typeof msg !== 'object') return;
       if (msg.t === 'state') apply(msg);
-      else if (msg.t === 'se') {
+      else if (msg.t === 'hostChanging') {
+        changingTo = String(msg.newHostName || '').slice(0, 16) || 'ななし';
+        renderStatus();
+      } else if (msg.t === 'se') {
         if (!mute) {
           se.playSE(msg.id);
           checkAudio();
@@ -45,18 +50,26 @@ export function startStageView({ code, chroma, mute }) {
       }
     },
     onStatus(st) {
-      const el = $('s-status');
-      const map = {
-        connecting: '接続しています…（部屋 ' + code + '）',
-        connected: '',
-        retrying: '再接続中…',
-        notfound: '部屋 ' + code + ' が見つかりません（再試行中…）',
-      };
-      const text = map[st] == null ? '' : map[st];
-      el.textContent = text;
-      el.hidden = !text;
+      lastStatus = st;
+      // 新しいMCにつながったら通常表示に戻す
+      if (st === 'connected') changingTo = null;
+      renderStatus();
     },
   });
+
+  function renderStatus() {
+    const el = $('s-status');
+    const map = {
+      connecting: '接続しています…（部屋 ' + code + '）',
+      connected: '',
+      retrying: '再接続中…',
+      notfound: '部屋 ' + code + ' が見つかりません（再試行中…）',
+    };
+    let text = map[lastStatus] == null ? '' : map[lastStatus];
+    if (changingTo != null) text = `MC交代中…（${changingTo}さんへ）`;
+    el.textContent = text;
+    el.hidden = !text;
+  }
 
   // 音声が止められている（普通のブラウザで開いた）ときはクリックを促す
   function checkAudio() {

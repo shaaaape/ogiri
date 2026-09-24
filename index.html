@@ -27,6 +27,7 @@
 
       <form id="join-form" class="card form" hidden autocomplete="off">
         <h2>参加する</h2>
+        <p id="join-note" class="join-note" hidden></p>
         <label>部屋コード（4文字）
           <input id="join-code" class="code-input" maxlength="4" autocapitalize="characters" spellcheck="false" placeholder="例: AB7K">
         </label>
@@ -64,6 +65,11 @@
       <div class="host-status">
         <span id="h-net" class="net-badge warn">準備中…</span>
         <span id="h-count" class="count">参加者 0人</span>
+      </div>
+      <!-- MC交代で引き継いだときのお知らせ -->
+      <div id="h-banner" class="host-banner" hidden>
+        <span id="h-banner-text"></span>
+        <button id="h-banner-close" class="mini" type="button" title="閉じる">×</button>
       </div>
     </header>
 
@@ -211,6 +217,15 @@
       <div id="s-audio-hint" class="s-audio-hint" hidden>クリックでSEを有効化</div>
     </div>
   </section>
+
+  <!-- MC交代中の全画面表示（MC・参加者で共用） -->
+  <div id="handover-overlay" class="handover-overlay" hidden>
+    <div class="handover-box">
+      <div class="handover-spin"></div>
+      <p id="handover-title" class="handover-title">MCを引き継ぎます…</p>
+      <p id="handover-sub" class="handover-sub"></p>
+    </div>
+  </div>
 
   <div id="toast" class="toast" hidden></div>
 </body>

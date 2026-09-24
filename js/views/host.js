@@ -11,6 +11,9 @@ const SS_ROOM = 'ogiri.hostRoom';
 const SS_STATE = 'ogiri.hostState';
 const SS_USED = 'ogiri.usedTopics';
 const LS_AUTO_DON = 'ogiri.autoDon';
+const SS_PENDING = 'ogiri.handoverPending'; // MC交代で引き継いだ直後の起動（player.js が書く）
+const SS_HANDED = 'ogiri.handedOver';       // MCを渡した相手の名前（トップ画面でお知らせ）
+const HANDOVER_TIMEOUT = 3000;
 
 const pad2 = (n) => String(n).padStart(2, '0');
 function hhmm(ms) {
@@ -76,13 +79,23 @@ export function startHostView() {
   // リロード復元時に既にオープン済みならドンを鳴らし直さない
   const stageKey = (st) => st.playerId + ':' + st.since;
   let lastOpenKey = state.stage && state.stage.opened ? stageKey(state.stage) : null;
+  // MC交代
+  let pending = !!savedRoom && sessionStorage.getItem(SS_PENDING) === '1'; // 引き継いで起動中
+  let waitPlayers = false; // 引き継ぎ後、参加者が戻ってくるのを待っている
+  let handingTo = null;    // 渡している相手 { id, name, timer }
+  let leaving = false;     // MCを渡し終えてページを離れるところ
 
   $('h-code').textContent = code;
+  if (pending) {
+    setNet('MCを引き継いでいます…', 'warn');
+    setBanner('MCを引き継いでいます…（前のMCが部屋を手放すのを待っています）');
+  }
 
   // ---- 接続 ----
-  startHost(code, {
+  const net = startHost(code, {
     onOpen(c) {
-      if (c !== code) {
+      const changedCode = c !== code;
+      if (changedCode) {
         code = c;
         state.room = c;
         state.changed();
@@ -91,19 +104,61 @@ export function startHostView() {
       sessionStorage.setItem(SS_ROOM, c);
       $('h-code').textContent = c;
       setNet('受付中', 'ok');
+      if (changedCode && savedRoom) {
+        // 同じコードで部屋を作り直せなかった → 参加者は自動では戻れない
+        setBanner('部屋コードが変わりました：', { alert: true, code: c,
+          after: ' 参加用URL・ステージURLをコピーして送り直してください' });
+        waitPlayers = false;
+      } else if (pending) {
+        setBanner('MCを引き継ぎました。参加者とステージが自動でつながり直すのを待っています…');
+        waitPlayers = true;
+        setTimeout(() => {
+          if (waitPlayers) { waitPlayers = false; hideBanner(); }
+        }, 30000);
+      }
+      if (pending) {
+        pending = false;
+        sessionStorage.removeItem(SS_PENDING);
+      }
     },
     onConnection: handleConn,
     onStatus(s) {
-      if (s === 'waiting') setNet('部屋を準備中…', 'warn');
+      if (s === 'waiting') setNet(pending ? 'MCを引き継いでいます…' : '部屋を準備中…', 'warn');
       else if (s === 'reconnecting') setNet('サーバー再接続中…', 'warn');
       else if (s === 'error') setNet('通信エラー（再試行中）', 'warn');
     },
-  }, { reuse: !!savedRoom });
+  }, { reuse: !!savedRoom, retries: pending ? 8 : 3 });
 
   function setNet(text, cls) {
     const el = $('h-net');
     el.textContent = text;
     el.className = 'net-badge ' + cls;
+  }
+
+  // ヘッダのお知らせ帯
+  function setBanner(text, { alert = false, code: c = null, after = '' } = {}) {
+    const t = $('h-banner-text');
+    t.textContent = text;
+    if (c) {
+      const b = document.createElement('b');
+      b.textContent = c;
+      t.append(b, after);
+    }
+    $('h-banner').classList.toggle('alert', alert);
+    $('h-banner').hidden = false;
+  }
+  function hideBanner() {
+    $('h-banner').hidden = true;
+  }
+  $('h-banner-close').addEventListener('click', () => {
+    waitPlayers = false;
+    hideBanner();
+  });
+
+  function showOverlay(title, sub) {
+    $('handover-title').textContent = title;
+    $('handover-sub').textContent = sub || '';
+    $('handover-overlay').hidden = false;
   }
 
   function handleConn(conn) {
@@ -141,7 +196,13 @@ export function startHostView() {
   function onMsg(conn, msg) {
     if (!msg || typeof msg !== 'object') return;
     const m = conns.get(conn);
-    if (!m) return;
+    if (!m || leaving) return;
+
+    // MCを渡している間は受け取り確認だけ受け付ける
+    if (handingTo) {
+      if (msg.t === 'handoverAck' && m.role === 'player' && m.id === handingTo.id) finishHandover();
+      return;
+    }
 
     if (msg.t === 'hello') {
       if (msg.role === 'stage') {
@@ -187,8 +248,69 @@ export function startHostView() {
     state.remove(id);
   }
 
+  // ---- MCの交代 ----
+  // 参加者 id にMCを渡す。相手のブラウザが同じ部屋コードで新しいホストになる
+  function handOver(id) {
+    if (handingTo || leaving) return;
+    const p = state.get(id);
+    if (!p || !p.connected || state.isOnStage(id)) return;
+    const findConn = () => {
+      for (const [c, m] of conns) {
+        if (m.role === 'player' && m.id === id && !m.kicked && c.open) return c;
+      }
+      return null;
+    };
+    if (!findConn()) {
+      toast('その人とはいまつながっていません');
+      return;
+    }
+    if (!window.confirm(`「${p.name}」さんにMCを渡しますか？\nあなたは参加者として入り直せます。`)) return;
+    // 確認ダイアログの間に状況が変わっていないか
+    const conn = findConn();
+    if (!conn || !state.get(id) || state.isOnStage(id) || handingTo || leaving) {
+      toast('MCを渡せませんでした（相手の状態が変わりました）');
+      return;
+    }
+    handingTo = { id, name: p.name, timer: null };
+    // 渡す相手以外（参加者・ステージ）へ予告
+    broadcast({ t: 'hostChanging', newHostName: p.name }, (m) => !(m.role === 'player' && m.id === id));
+    const customSE = se.listCustomMeta()
+      .filter((m) => se.hasCustom(m.id))
+      .map((m) => ({ id: m.id, name: m.name, mime: m.mime }));
+    sendTo(conn, {
+      t: 'handover',
+      code,
+      snapshot: state.toSave(true),
+      topicList: topicList.value,
+      customSE,
+      usedTopics: [...used], // ランダム出題の「出題済み」
+      now: Date.now(),       // タイマーの時計合わせ用
+    });
+    showOverlay(`${p.name}さんにMCを渡しています…`, '受け取りの確認を待っています');
+    handingTo.timer = setTimeout(finishHandover, HANDOVER_TIMEOUT);
+  }
+
+  // 受け取り確認（またはタイムアウト）→ 部屋を手放して参加フォームへ
+  function finishHandover() {
+    if (leaving || !handingTo) return;
+    leaving = true;
+    clearTimeout(handingTo.timer);
+    clearTimeout(saveTimer);
+    const list = [...conns.keys()];
+    conns.clear();
+    for (const c of list) {
+      try { c.close(); } catch (e) { /* 無視 */ }
+    }
+    net.destroy(); // Peer ID（ogiri-CODE）を解放
+    for (const k of [SS_STATE, SS_ROOM, SS_USED, SS_PENDING]) sessionStorage.removeItem(k);
+    try { sessionStorage.setItem(SS_HANDED, handingTo.name); } catch (e) { /* 無視 */ }
+    showOverlay('MCを渡しました', '参加者として入り直す画面へ移動します…');
+    location.replace(location.pathname + '?room=' + code);
+  }
+
   // ---- 状態変更 → 全員へ送信・画面更新 ----
   function onStateChange(snap) {
+    if (leaving) return;
     broadcast({ t: 'state', ...snap });
     // オープンされた瞬間（false→true）にドン
     const st = snap.stage;
@@ -202,7 +324,9 @@ export function startHostView() {
 
   function scheduleSave() {
     clearTimeout(saveTimer);
+    if (leaving) return;
     saveTimer = setTimeout(() => {
+      if (leaving) return;
       try {
         sessionStorage.setItem(SS_STATE, JSON.stringify(state.toSave(true)));
       } catch (e) {
@@ -239,6 +363,7 @@ export function startHostView() {
         <button type="button" class="btn small primary b-open">オープン（MC側で）</button>
         <button type="button" class="btn small b-dismiss">下げる</button>
         <button type="button" class="btn small danger b-kick">退室させる</button>
+        <button type="button" class="btn small subtle b-handover" title="この人を新しいMCにする">MCを渡す</button>
       </div>`;
     const c = {
       el,
@@ -250,8 +375,10 @@ export function startHostView() {
       open: el.querySelector('.b-open'),
       dismiss: el.querySelector('.b-dismiss'),
       kick: el.querySelector('.b-kick'),
+      handover: el.querySelector('.b-handover'),
       rev: -1,
     };
+    c.handover.addEventListener('click', () => handOver(id));
     c.call.addEventListener('click', () => state.callToStage(id));
     c.open.addEventListener('click', () => state.openStage());
     c.dismiss.addEventListener('click', () => {
@@ -293,6 +420,10 @@ export function startHostView() {
       c.kick.hidden = onStage;
       c.open.hidden = !onStage || opened;
       c.dismiss.hidden = !onStage;
+      // 切断中・発表中の人には渡せない
+      c.handover.disabled = !p.connected || onStage || !!handingTo;
+      c.handover.title = !p.connected ? '切断中の人には渡せません'
+        : onStage ? '発表中の人には渡せません（下げてから）' : 'この人を新しいMCにする';
       if (force || c.rev !== p.rev) {
         c.rev = p.rev;
         drawFlip(c.canvas, p.flip);
@@ -358,6 +489,12 @@ export function startHostView() {
     const players = state.connectedCount();
     const stages = [...conns.values()].filter((m) => m.role === 'stage').length;
     $('h-count').textContent = `参加者 ${players}人` + (stages ? ` ／ ステージ ${stages}` : '');
+    // 引き継ぎ後、誰かが戻ってきたらお知らせを消す
+    if (waitPlayers && (players > 0 || stages > 0)) {
+      waitPlayers = false;
+      hideBanner();
+      toast('MCを引き継ぎました');
+    }
   }
 
   // リサイズ時にプレビューを描き直す
@@ -607,6 +744,7 @@ export function startHostView() {
   // 初期表示
   render(state.snapshot());
   window.addEventListener('beforeunload', (e) => {
+    if (leaving) return; // MCを渡して移動するときは確認しない
     if (state.players.some((p) => p.connected)) {
       e.preventDefault();
       e.returnValue = '';

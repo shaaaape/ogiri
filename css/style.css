@@ -746,6 +746,73 @@ body.chroma .s-name .nm { background: #000b; padding: 0 .4em; border-radius: .3e
   to { transform: scale(1); opacity: 1; }
 }
 
+/* ===== MCの交代 ===== */
+/* 参加者カードの「MCを渡す」（控えめ） */
+.btn.subtle {
+  background: transparent;
+  border-style: dashed;
+  color: var(--muted);
+  font-weight: 600;
+}
+.btn.subtle:hover:not(:disabled) { color: var(--text); background: #262b35; }
+
+/* MC画面ヘッダのお知らせ帯 */
+.host-banner {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #43381a;
+  color: #ffd574;
+  font-weight: 700;
+}
+.host-banner > span { flex: 1; }
+.host-banner.alert {
+  background: #5a1e1e;
+  color: #fff;
+  border: 2px solid var(--red);
+  font-size: 18px;
+}
+.host-banner.alert b { color: var(--accent); font-size: 24px; letter-spacing: .1em; }
+
+/* 参加フォームのお知らせ（MCを渡した直後） */
+.join-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #173d2c;
+  color: #7ff0b9;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* 全画面の「MCを引き継ぎます…」 */
+.handover-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #0b0d11ee;
+}
+.handover-box { text-align: center; max-width: 520px; }
+.handover-title { font-size: 28px; font-weight: 800; margin: 18px 0 8px; }
+.handover-sub { color: var(--muted); margin: 0; }
+.handover-spin {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto;
+  border-radius: 50%;
+  border: 5px solid var(--line);
+  border-top-color: var(--accent);
+  animation: handover-spin 1s linear infinite;
+}
+@keyframes handover-spin { to { transform: rotate(360deg); } }
+
 /* ===== レスポンシブ ===== */
 @media (max-width: 1100px) {
   .host-main { grid-template-columns: 1fr; }

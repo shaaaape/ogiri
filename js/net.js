@@ -32,11 +32,12 @@ export function normalizeCode(s) {
 // ---- ホスト ----
 // h: { onOpen(code), onConnection(conn), onStatus('online'|'waiting'|'reconnecting'|'error') }
 // reuse=true のとき（リロード時）は同じコードで数回待ってから新コードにする
-export function startHost(initialCode, h, { reuse = false } = {}) {
+// retries: 同じコードで待つ回数（MC交代直後は前のMCがIDを手放すまで長めに待つ）
+export function startHost(initialCode, h, { reuse = false, retries = 3 } = {}) {
   let code = initialCode;
   let peer = null;
   let closed = false;
-  let sameRetries = reuse ? 3 : 0;
+  let sameRetries = reuse ? retries : 0;
 
   function create() {
     if (closed) return;
@@ -89,13 +90,18 @@ export function startHost(initialCode, h, { reuse = false } = {}) {
     });
   }
 
-  create();
-  window.addEventListener('pagehide', () => {
+  // Peer を破棄して Peer ID を手放す（ページを離れるとき・MC交代のとき）
+  function destroy() {
     closed = true;
-    try { if (peer) peer.destroy(); } catch (e) { /* 無視 */ }
-  });
+    const p = peer;
+    peer = null;
+    try { if (p) p.destroy(); } catch (e) { /* 無視 */ }
+  }
 
-  return { get code() { return code; } };
+  create();
+  window.addEventListener('pagehide', destroy);
+
+  return { get code() { return code; }, destroy };
 }
 
 // ---- クライアント（参加者・ステージ） ----
