@@ -24,6 +24,7 @@ export function createFlipEditor({ canvas, tools, onChange }) {
   const textTools = q('.fe-text-tools');
   const textArea = q('.fe-text');
   const eraserBtn = q('.fe-eraser');
+  q('.fe-clear').title = '全消し（「戻す」で元に戻せます）';
 
   const local = { mode: 'draw', strokes: [], text: '' }; // 編集中のフリップ（ローカルが即時反映）
   const tool = { color: INK.black, width: 8, erase: false };
@@ -32,6 +33,7 @@ export function createFlipEditor({ canvas, tools, onChange }) {
   let locked = false;
   let textTimer = null;
   let drawQueued = false;
+  let clearedBackup = null; // 直前の「全消し」で消したストローク（「戻す」で復元できる）
 
   function getFlip() {
     return { mode: local.mode, strokes: local.strokes, text: local.text };
@@ -69,6 +71,7 @@ export function createFlipEditor({ canvas, tools, onChange }) {
     if (cur) return; // 2本目の指は無視
     e.preventDefault();
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 無視 */ }
+    clearedBackup = null; // 新しいストロークを描き始めたら「全消し」の復元はできなくする
     curPointer = e.pointerId;
     cur = {
       color: tool.erase ? '#000' : tool.color,
@@ -162,14 +165,21 @@ export function createFlipEditor({ canvas, tools, onChange }) {
     updateToolUI();
   });
   q('.fe-undo').addEventListener('click', () => {
-    if (locked || !local.strokes.length) return;
-    local.strokes.pop();
+    if (locked || !(local.strokes.length || clearedBackup)) return;
+    if (local.strokes.length === 0 && clearedBackup) {
+      // 直前の「全消し」を元に戻す
+      local.strokes = clearedBackup;
+      clearedBackup = null;
+    } else {
+      local.strokes.pop();
+    }
     requestDraw();
     emit();
   });
   q('.fe-clear').addEventListener('click', () => {
     if (locked || !local.strokes.length) return;
-    if (!window.confirm('手書きを全部消しますか？')) return;
+    // 確認なしで即消す。「戻す」で元に戻せる
+    clearedBackup = local.strokes;
     local.strokes = [];
     requestDraw();
     emit();
@@ -186,6 +196,7 @@ export function createFlipEditor({ canvas, tools, onChange }) {
   function setFlip(flip) {
     cur = null;
     curPointer = null;
+    clearedBackup = null;
     clearTimeout(textTimer);
     textTimer = null;
     const f = flip || {};

@@ -814,6 +814,22 @@ body.chroma .s-name .nm { background: #000b; padding: 0 .4em; border-radius: .3e
 }
 @keyframes handover-spin { to { transform: rotate(360deg); } }
 
+/* ページ内ダイアログ（confirm / alert の置き換え。js/dialog.js） */
+.app-dialog {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  padding: 20px;
+  max-width: min(380px, calc(100vw - 32px));
+  width: 100%;
+  box-shadow: 0 12px 40px #000000aa;
+}
+.app-dialog::backdrop { background: #0b0d11cc; }
+.app-dialog-msg { font-size: 15px; line-height: 1.6; margin-bottom: 18px; }
+.app-dialog-btns { display: flex; justify-content: flex-end; gap: 10px; }
+.app-dialog-btns .btn { min-height: 44px; min-width: 96px; }
+
 /* ===== レスポンシブ ===== */
 @media (max-width: 1100px) {
   .host-main { grid-template-columns: 1fr; }

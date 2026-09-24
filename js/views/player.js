@@ -2,6 +2,7 @@
 import { Client, normalizeCode } from '../net.js';
 import { createFlipEditor } from '../flipEditor.js';
 import { sanitizeName, flipHasContent } from '../state.js';
+import { alertDialog } from '../dialog.js';
 import * as se from '../se.js';
 
 const $ = (id) => document.getElementById(id);
@@ -90,7 +91,7 @@ export function startPlayerView({ code, name, clientId, onExit }) {
     el.className = 'net-badge ' + cls;
   }
 
-  function onData(msg) {
+  async function onData(msg) {
     if (!msg || typeof msg !== 'object' || takingOver) return;
     switch (msg.t) {
       case 'hostChanging':
@@ -108,7 +109,7 @@ export function startPlayerView({ code, name, clientId, onExit }) {
       }
       case 'kicked':
         client.stop();
-        window.alert('MCにより退室しました。');
+        await alertDialog('MCにより退室しました。');
         onExit();
         break;
       default: break;

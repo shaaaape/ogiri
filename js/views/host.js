@@ -3,6 +3,7 @@ import { startHost, genCode } from '../net.js';
 import { HostState, playerStatus, STATUS_LABEL, HOST_ID, sanitizeName } from '../state.js';
 import { drawFlip } from '../flip.js';
 import { createFlipEditor } from '../flipEditor.js';
+import { confirmDialog, alertDialog } from '../dialog.js';
 import * as se from '../se.js';
 
 const $ = (id) => document.getElementById(id);
@@ -258,7 +259,7 @@ export function startHostView() {
 
   // ---- MCの交代 ----
   // 参加者 id にMCを渡す。相手のブラウザが同じ部屋コードで新しいホストになる
-  function handOver(id) {
+  async function handOver(id) {
     if (handingTo || leaving || id === HOST_ID) return;
     const p = state.get(id);
     if (!p || !p.connected || state.isOnStage(id)) return;
@@ -272,7 +273,7 @@ export function startHostView() {
       toast('その人とはいまつながっていません');
       return;
     }
-    if (!window.confirm(`「${p.name}」さんにMCを渡しますか？\nあなたは参加者として入り直せます。`)) return;
+    if (!(await confirmDialog(`「${p.name}」さんにMCを渡しますか？\nあなたは参加者として入り直せます。`))) return;
     // 確認ダイアログの間に状況が変わっていないか
     const conn = findConn();
     if (!conn || !state.get(id) || state.isOnStage(id) || handingTo || leaving) {
@@ -508,9 +509,9 @@ export function startHostView() {
     c.dismiss.addEventListener('click', () => {
       if (state.isOnStage(id)) state.dismissStage();
     });
-    c.kick.addEventListener('click', () => {
+    c.kick.addEventListener('click', async () => {
       const p = state.get(id);
-      if (p && window.confirm(`「${p.name}」を退室させますか？（フリップも消えます）`)) kick(id);
+      if (p && (await confirmDialog(`「${p.name}」を退室させますか？（フリップも消えます）`))) kick(id);
     });
     return c;
   }
@@ -713,9 +714,9 @@ export function startHostView() {
       drawFlip(item.querySelector('canvas'), h.flip);
     }
   }
-  $('h-history-clear').addEventListener('click', () => {
+  $('h-history-clear').addEventListener('click', async () => {
     if (!state.history.length) return;
-    if (window.confirm('回答履歴を消しますか？')) state.clearHistory();
+    if (await confirmDialog('回答履歴を消しますか？')) state.clearHistory();
   });
 
   function updateCount() {
@@ -891,7 +892,7 @@ export function startHostView() {
   }
 
   async function removeCustom(m) {
-    if (!window.confirm(`「${m.name}」を削除しますか？`)) return;
+    if (!(await confirmDialog(`「${m.name}」を削除しますか？`, { danger: true }))) return;
     await se.deleteCustom(m.id);
     renderCustom();
   }
@@ -951,12 +952,12 @@ export function startHostView() {
         broadcast({ t: 'seCustom', id: meta.id, name: meta.name, mime: meta.mime, data: buf },
           (m) => m.role === 'stage' || !big);
         if (big) {
-          window.alert(`「${meta.name}」は1.5MBを超えているため、参加者には送られません。\nホストとステージ画面でのみ鳴ります。`);
+          await alertDialog(`「${meta.name}」は1.5MBを超えているため、参加者には送られません。\nホストとステージ画面でのみ鳴ります。`);
         } else {
           toast(`「${meta.name}」を追加しました`);
         }
       } catch (err) {
-        window.alert(`「${f.name}」を音声として読み込めませんでした。mp3などの音声ファイルを選んでください。`);
+        await alertDialog(`「${f.name}」を音声として読み込めませんでした。mp3などの音声ファイルを選んでください。`);
       }
     }
   });
