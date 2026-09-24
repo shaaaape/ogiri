@@ -1,7 +1,8 @@
 // MC画面（ホスト）
 import { startHost, genCode } from '../net.js';
-import { HostState, playerStatus, STATUS_LABEL } from '../state.js';
+import { HostState, playerStatus, STATUS_LABEL, HOST_ID, sanitizeName } from '../state.js';
 import { drawFlip } from '../flip.js';
+import { createFlipEditor } from '../flipEditor.js';
 import * as se from '../se.js';
 
 const $ = (id) => document.getElementById(id);
@@ -11,6 +12,7 @@ const SS_ROOM = 'ogiri.hostRoom';
 const SS_STATE = 'ogiri.hostState';
 const SS_USED = 'ogiri.usedTopics';
 const LS_AUTO_DON = 'ogiri.autoDon';
+const LS_HOST_NAME = 'ogiri.hostName'; // MC自身の名前（自分も回答するときの表示名）
 const SS_PENDING = 'ogiri.handoverPending'; // MC交代で引き継いだ直後の起動（player.js が書く）
 const SS_HANDED = 'ogiri.handedOver';       // MCを渡した相手の名前（トップ画面でお知らせ）
 const HANDOVER_TIMEOUT = 3000;
@@ -66,6 +68,9 @@ export function startHostView() {
   history.replaceState(null, '', location.pathname + '?host=1');
 
   const state = new HostState(code, onStateChange);
+  let hostName = null;
+  try { hostName = localStorage.getItem(LS_HOST_NAME); } catch (e) { /* 無視 */ }
+  state.hostEntry.name = sanitizeName(hostName || 'MC');
   try {
     const s = JSON.parse(sessionStorage.getItem(SS_STATE) || 'null');
     if (s && s.room === code) state.load(s);
@@ -208,7 +213,9 @@ export function startHostView() {
       if (msg.role === 'stage') {
         m.role = 'stage';
       } else {
-        const id = String(msg.clientId || '').slice(0, 64) || 'p' + Math.random().toString(36).slice(2, 10);
+        let id = String(msg.clientId || '').slice(0, 64);
+        // 'host' はMC自身の回答用に予約
+        if (!id || id === HOST_ID) id = 'p' + Math.random().toString(36).slice(2, 10);
         // 同じ人の古い接続は置き換える
         for (const [c, mm] of conns) {
           if (c !== conn && mm.role === 'player' && mm.id === id) {
@@ -238,6 +245,7 @@ export function startHostView() {
   }
 
   function kick(id) {
+    if (id === HOST_ID) return;
     for (const [c, m] of conns) {
       if (m.role === 'player' && m.id === id) {
         m.kicked = true;
@@ -251,7 +259,7 @@ export function startHostView() {
   // ---- MCの交代 ----
   // 参加者 id にMCを渡す。相手のブラウザが同じ部屋コードで新しいホストになる
   function handOver(id) {
-    if (handingTo || leaving) return;
+    if (handingTo || leaving || id === HOST_ID) return;
     const p = state.get(id);
     if (!p || !p.connected || state.isOnStage(id)) return;
     const findConn = () => {
@@ -277,10 +285,14 @@ export function startHostView() {
     const customSE = se.listCustomMeta()
       .filter((m) => se.hasCustom(m.id))
       .map((m) => ({ id: m.id, name: m.name, mime: m.mime }));
+    // 自分（MC）の回答は引き継がない（履歴に入っているものは残る）。新MCは自分の 'host' を新規に持つ
+    const snapshot = state.toSave(true);
+    delete snapshot.host;
+    if (snapshot.stage && snapshot.stage.playerId === HOST_ID) snapshot.stage = null;
     sendTo(conn, {
       t: 'handover',
       code,
-      snapshot: state.toSave(true),
+      snapshot,
       topicList: topicList.value,
       customSE,
       usedTopics: [...used], // ランダム出題の「出題済み」
@@ -340,18 +352,120 @@ export function startHostView() {
     const nt = $('h-now-topic');
     nt.textContent = s.topic || '（まだ出題していません）';
     nt.classList.toggle('empty', !s.topic);
-    renderPlayers(s, false);
+    renderMine(s);
+    // ドラッグで並び替え中はカードを動かさない（終わってからまとめて反映）
+    if (drag) pendingRender = true;
+    else renderPlayers(s, false);
     renderHands(s);
     renderHistory(false);
     updateCount();
   }
 
+  // ---- 自分の回答（MC自身のフリップ） ----
+  // 編集はローカルで即時反映し、変わったら直接 state を更新する（メッセージは使わない）
+  let mineRev = null; // エディタに反映済みの hostEntry.rev
+  const mineEditor = createFlipEditor({
+    canvas: $('h-mine-canvas'),
+    tools: $('h-mine-tools'),
+    onChange(flip) {
+      state.setFlip(HOST_ID, flip);
+      mineRev = state.hostEntry.rev;
+    },
+  });
+
+  function renderMine(s) {
+    const on = state.hostAnswers;
+    const e = state.hostEntry;
+    const st = s.stage;
+    $('h-host-answers').checked = on;
+    $('h-mine-body').hidden = !on;
+    $('h-mine-off').hidden = on;
+    $('h-mine-status').textContent = on ? STATUS_LABEL[playerStatus(e, st)] : '';
+    const mine = !!(on && st && st.playerId === HOST_ID);
+    const opened = mine && !!st.opened;
+    const submitted = !!e.submitted;
+    if (mine) {
+      // 発表中はステージに出ている内容と同じにする
+      mineEditor.setFlip(e.flip);
+      mineRev = e.rev;
+    } else if (e.rev !== mineRev) {
+      // 下げた・全部クリア・リロード復元など、外から内容が変わった
+      mineRev = e.rev;
+      mineEditor.setFlip(e.flip);
+    }
+    const lock = submitted || mine;
+    const sb = $('h-mine-submit');
+    sb.textContent = submitted && !mine ? '書き直す' : '提出する';
+    sb.classList.toggle('primary', !submitted || mine);
+    sb.disabled = mine;
+    const badge = $('h-mine-badge');
+    if (opened) {
+      badge.textContent = 'オープン中';
+      badge.className = 'flip-badge b-open';
+      badge.hidden = false;
+    } else if (submitted && !mine) {
+      badge.textContent = '提出済';
+      badge.className = 'flip-badge b-done';
+      badge.hidden = false;
+    } else {
+      badge.hidden = true;
+    }
+    const lockEl = $('h-mine-lock');
+    if (opened) {
+      $('h-mine-lock-main').textContent = '発表中';
+      $('h-mine-lock-sub').textContent = '「下げる」と次の回答を書けます';
+      lockEl.hidden = false;
+    } else if (submitted && !mine) {
+      $('h-mine-lock-main').textContent = '提出済み';
+      $('h-mine-lock-sub').textContent = '直すときは「書き直す」';
+      lockEl.hidden = false;
+    } else {
+      lockEl.hidden = true;
+    }
+    // 自分の番（未オープン）：参加者画面と同じオーバーレイ
+    $('h-mine-turn').hidden = !(mine && !opened);
+    $('h-mine-wrap').classList.toggle('locked', lock);
+    mineEditor.setLocked(lock);
+  }
+
+  $('h-mine-open').addEventListener('click', () => state.openStage(HOST_ID));
+  $('h-mine-submit').addEventListener('click', () => {
+    const e = state.hostEntry;
+    if (state.isOnStage(HOST_ID)) return;
+    if (e.submitted) {
+      state.setSubmitted(HOST_ID, false);
+    } else {
+      mineEditor.flush(); // 文字の反映待ちがあれば先に
+      state.setSubmitted(HOST_ID, true);
+    }
+  });
+  $('h-host-answers').addEventListener('change', (ev) => {
+    if (!ev.target.checked) mineEditor.flush();
+    state.setHostAnswers(ev.target.checked);
+  });
+
+  // MCの名前（ヘッダ。クリックで変更）
+  const nameBtn = $('h-name');
+  nameBtn.textContent = state.hostEntry.name;
+  nameBtn.addEventListener('click', () => {
+    const n = window.prompt('MCの名前（16文字まで）', state.hostEntry.name);
+    if (n == null || !n.trim()) return;
+    const name = sanitizeName(n);
+    try { localStorage.setItem(LS_HOST_NAME, name); } catch (e) { /* 無視 */ }
+    nameBtn.textContent = name;
+    state.setHostName(name);
+  });
+
+  // ---- 参加者カード ----
   function makeCard(id) {
     const el = document.createElement('div');
     el.className = 'pcard';
+    el.dataset.id = id;
     el.innerHTML = `
       <div class="pcard-head">
+        <span class="pcard-grip" title="ドラッグで並び替え">⠿</span>
         <span class="pcard-name"></span>
+        <span class="pcard-mc" hidden>MC</span>
         <span class="pcard-hand"></span>
       </div>
       <div class="pcard-flip">
@@ -368,6 +482,7 @@ export function startHostView() {
     const c = {
       el,
       name: el.querySelector('.pcard-name'),
+      mc: el.querySelector('.pcard-mc'),
       hand: el.querySelector('.pcard-hand'),
       canvas: el.querySelector('canvas'),
       badge: el.querySelector('.pcard-badge'),
@@ -378,8 +493,17 @@ export function startHostView() {
       handover: el.querySelector('.b-handover'),
       rev: -1,
     };
+    const grip = el.querySelector('.pcard-grip');
+    grip.addEventListener('pointerdown', (e) => startDrag(e, id, el));
+    grip.addEventListener('pointermove', moveDrag);
+    grip.addEventListener('pointerup', (e) => endDrag(e, true));
+    grip.addEventListener('pointercancel', (e) => endDrag(e, false));
+    grip.addEventListener('lostpointercapture', (e) => endDrag(e, true));
     c.handover.addEventListener('click', () => handOver(id));
-    c.call.addEventListener('click', () => state.callToStage(id));
+    c.call.addEventListener('click', () => {
+      if (id === HOST_ID) mineEditor.flush(); // 書きかけの文字を反映してから呼ぶ
+      state.callToStage(id);
+    });
     c.open.addEventListener('click', () => state.openStage());
     c.dismiss.addEventListener('click', () => {
       if (state.isOnStage(id)) state.dismissStage();
@@ -407,17 +531,22 @@ export function startHostView() {
         cards.set(p.id, c);
       }
       if (grid.children[i] !== c.el) grid.insertBefore(c.el, grid.children[i] || null);
+      const isHost = !!p.isHost;
       const onStage = !!(s.stage && s.stage.playerId === p.id);
       const opened = onStage && s.stage.opened;
       const st = playerStatus(p, s.stage);
       c.el.classList.toggle('off', !p.connected);
       c.el.classList.toggle('onstage', onStage);
+      c.el.classList.toggle('is-host', isHost);
       c.name.textContent = p.name + (p.connected ? '' : '（切断中）');
+      c.mc.hidden = !isHost;
       c.hand.textContent = p.hand.raised ? `✋ ${p.hand.order}` : '';
       c.badge.textContent = st === 'onstage' ? (opened ? '発表中（オープン）' : '発表中') : STATUS_LABEL[st];
       c.badge.className = 'pcard-badge st-' + st;
       c.call.hidden = onStage;
-      c.kick.hidden = onStage;
+      // MC自身のカードには「退室させる」「MCを渡す」を出さない
+      c.kick.hidden = onStage || isHost;
+      c.handover.hidden = isHost;
       c.open.hidden = !onStage || opened;
       c.dismiss.hidden = !onStage;
       // 切断中・発表中の人には渡せない
@@ -429,7 +558,111 @@ export function startHostView() {
         drawFlip(c.canvas, p.flip);
       }
     });
-    $('h-empty').hidden = s.players.length > 0;
+    $('h-empty').hidden = s.players.some((p) => !p.isHost);
+  }
+
+  // ---- 並び替え（カード左上の ⠿ をドラッグ。Pointer Events でマウス・ペン・タッチ共通） ----
+  let drag = null;           // { id, el, pointerId, sx, sy, x, y, target, raf }
+  let pendingRender = false; // ドラッグ中に保留した再描画
+  const indicator = document.createElement('div');
+  indicator.className = 'drop-indicator';
+  indicator.hidden = true;
+  document.body.appendChild(indicator);
+
+  function startDrag(e, id, el) {
+    if (drag || handingTo || leaving) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* 無視 */ }
+    drag = {
+      id, el, pointerId: e.pointerId,
+      sx: e.clientX + window.scrollX, sy: e.clientY + window.scrollY, // ページ座標（スクロールしても追従）
+      x: e.clientX, y: e.clientY, target: null, raf: 0,
+    };
+    el.classList.add('dragging');
+    document.body.classList.add('reordering');
+    updateDrag();
+    drag.raf = requestAnimationFrame(autoScroll);
+  }
+
+  function moveDrag(e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    e.preventDefault();
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    updateDrag();
+  }
+
+  // つかんだカードを指に追従させ、挿入位置のインジケータを出す
+  function updateDrag() {
+    const dx = drag.x + window.scrollX - drag.sx;
+    const dy = drag.y + window.scrollY - drag.sy;
+    drag.el.style.transform = `translate(${dx}px, ${dy}px)`;
+    const others = [...$('h-players').children].filter((el) => el !== drag.el);
+    if (!others.length) {
+      drag.target = null;
+      indicator.hidden = true;
+      return;
+    }
+    // 指に一番近いカードの左右どちらに入るか
+    let best = null;
+    let bestD = Infinity;
+    for (const el of others) {
+      const r = el.getBoundingClientRect();
+      const cx = Math.min(r.right, Math.max(r.left, drag.x));
+      const cy = Math.min(r.bottom, Math.max(r.top, drag.y));
+      const d = (cx - drag.x) ** 2 + (cy - drag.y) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = { el, r };
+      }
+    }
+    const after = drag.x > best.r.left + best.r.width / 2;
+    drag.target = others.indexOf(best.el) + (after ? 1 : 0);
+    indicator.style.left = (after ? best.r.right + 4 : best.r.left - 8) + 'px';
+    indicator.style.top = best.r.top + 'px';
+    indicator.style.height = best.r.height + 'px';
+    indicator.hidden = false;
+  }
+
+  // 画面の上下端に近づいたら自動スクロール
+  function autoScroll() {
+    if (!drag) return;
+    const top = $('view-host').querySelector('.host-header').getBoundingClientRect().bottom + 40;
+    const bottom = window.innerHeight - 50;
+    let v = 0;
+    if (drag.y < top) v = -Math.min(20, (top - drag.y) / 3);
+    else if (drag.y > bottom) v = Math.min(20, (drag.y - bottom) / 3);
+    if (v) {
+      window.scrollBy(0, v);
+      updateDrag();
+    }
+    drag.raf = requestAnimationFrame(autoScroll);
+  }
+
+  function endDrag(e, commit) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    const d = drag;
+    drag = null;
+    cancelAnimationFrame(d.raf);
+    d.el.classList.remove('dragging');
+    d.el.style.transform = '';
+    indicator.hidden = true;
+    document.body.classList.remove('reordering');
+    const grid = $('h-players');
+    if (commit && d.target != null && d.el.parentNode === grid) {
+      const others = [...grid.children].filter((el) => el !== d.el);
+      const ref = others[d.target] || null;
+      if (d.el.nextElementSibling !== ref) {
+        // 先に DOM を動かしておく（state の反映を待つ間に元の位置へ戻って見えないように）
+        grid.insertBefore(d.el, ref);
+        state.reorder([...grid.children].map((el) => el.dataset.id));
+      }
+    }
+    if (pendingRender) {
+      pendingRender = false;
+      renderPlayers(state.snapshot(), true);
+    }
   }
 
   function renderHands(s) {
@@ -504,7 +737,8 @@ export function startHostView() {
     roQueued = true;
     requestAnimationFrame(() => {
       roQueued = false;
-      renderPlayers(state.snapshot(), true);
+      if (drag) pendingRender = true;
+      else renderPlayers(state.snapshot(), true);
     });
   }).observe($('h-players'));
 
@@ -745,7 +979,7 @@ export function startHostView() {
   render(state.snapshot());
   window.addEventListener('beforeunload', (e) => {
     if (leaving) return; // MCを渡して移動するときは確認しない
-    if (state.players.some((p) => p.connected)) {
+    if (state.connectedCount() > 0) {
       e.preventDefault();
       e.returnValue = '';
     }

@@ -57,6 +57,7 @@
       <div class="room-box">
         <span class="room-label">部屋コード</span>
         <span id="h-code" class="room-code">----</span>
+        <button id="h-name" class="name-btn" type="button" title="クリックでMCの名前を変更">MC</button>
       </div>
       <div class="host-header-btns">
         <button id="h-copy-join" class="btn" type="button">参加用URLをコピー</button>
@@ -93,9 +94,37 @@
           </div>
         </section>
 
+        <!-- MC自身の回答（参加者画面と同じフリップ編集） -->
+        <section id="h-mine" class="panel mine-panel">
+          <div class="panel-head">
+            <h2>自分の回答 <span id="h-mine-status" class="muted small"></span></h2>
+            <label class="check"><input type="checkbox" id="h-host-answers" checked> 自分も回答する</label>
+          </div>
+          <div id="h-mine-body" class="mine-body">
+            <div class="mine-flip-box">
+              <div id="h-mine-wrap" class="flip-wrap mine-flip">
+                <canvas id="h-mine-canvas" class="flip-canvas"></canvas>
+                <div id="h-mine-badge" class="flip-badge" hidden></div>
+                <div id="h-mine-lock" class="flip-lock" hidden><span id="h-mine-lock-main">提出済み</span><br><small id="h-mine-lock-sub">直すときは「書き直す」</small></div>
+                <div id="h-mine-turn" class="flip-turn" hidden>
+                  <div class="flip-turn-title">あなたの番です！</div>
+                  <button id="h-mine-open" class="btn primary big flip-turn-btn" type="button">フリップをオープン！</button>
+                </div>
+              </div>
+            </div>
+            <div class="mine-side">
+              <div id="h-mine-tools" class="fe-tools"></div>
+              <div class="tool-row actions">
+                <button id="h-mine-submit" class="btn primary grow" type="button">提出する</button>
+              </div>
+            </div>
+          </div>
+          <p id="h-mine-off" class="muted small" hidden>「自分も回答する」をオンにすると、MCも参加者と同じようにフリップで回答できます。</p>
+        </section>
+
         <section class="panel">
           <div class="panel-head">
-            <h2>参加者</h2>
+            <h2>参加者 <span class="muted small drag-hint">⠿ をドラッグで並び替え（ステージの並びも変わります）</span></h2>
             <div class="bulk">
               <button id="h-clear-all" class="btn danger" type="button">全部クリア（次の回へ）</button>
               <button id="h-hands-reset" class="btn" type="button">挙手リセット</button>
@@ -175,28 +204,8 @@
     </div>
 
     <div id="p-toolbar" class="p-toolbar">
-      <div class="tool-row">
-        <div id="p-mode" class="seg">
-          <button type="button" data-mode="draw" class="on">✏️ 手書き</button>
-          <button type="button" data-mode="text">🔤 文字</button>
-        </div>
-      </div>
-      <div id="p-draw-tools" class="tool-row tools">
-        <button type="button" class="tool swatch on" data-color="black" title="黒"><i style="background:#111111"></i></button>
-        <button type="button" class="tool swatch" data-color="red" title="赤"><i style="background:#e53935"></i></button>
-        <button type="button" class="tool swatch" data-color="blue" title="青"><i style="background:#1e5bd8"></i></button>
-        <span class="sep"></span>
-        <button type="button" class="tool width" data-width="4" title="細"><i style="width:6px;height:6px"></i></button>
-        <button type="button" class="tool width on" data-width="8" title="中"><i style="width:11px;height:11px"></i></button>
-        <button type="button" class="tool width" data-width="16" title="太"><i style="width:18px;height:18px"></i></button>
-        <span class="sep"></span>
-        <button type="button" id="p-eraser" class="tool text-tool" title="消しゴム">消しゴム</button>
-        <button type="button" id="p-undo" class="tool text-tool" title="1つ戻す">↶ 戻す</button>
-        <button type="button" id="p-clear" class="tool text-tool" title="全部消す">全消し</button>
-      </div>
-      <div id="p-text-tools" class="tool-row" hidden>
-        <textarea id="p-text" rows="3" maxlength="120" placeholder="ここに回答を入力（改行OK）"></textarea>
-      </div>
+      <!-- フリップ編集ツール（下の tpl-flip-tools から flipEditor.js が作る） -->
+      <div id="p-tools" class="fe-tools"></div>
       <div class="tool-row actions">
         <button id="p-submit" class="btn primary grow" type="button">提出する</button>
         <button id="p-hand" class="btn grow" type="button">✋ 挙手</button>
@@ -226,6 +235,32 @@
       <p id="handover-sub" class="handover-sub"></p>
     </div>
   </div>
+
+  <!-- フリップ編集ツール（参加者画面・MC画面「自分の回答」で共用。js/flipEditor.js が複製して使う） -->
+  <template id="tpl-flip-tools">
+    <div class="tool-row">
+      <div class="seg fe-mode">
+        <button type="button" data-mode="draw" class="on">✏️ 手書き</button>
+        <button type="button" data-mode="text">🔤 文字</button>
+      </div>
+    </div>
+    <div class="tool-row tools fe-draw-tools">
+      <button type="button" class="tool swatch on" data-color="black" title="黒"><i style="background:#111111"></i></button>
+      <button type="button" class="tool swatch" data-color="red" title="赤"><i style="background:#e53935"></i></button>
+      <button type="button" class="tool swatch" data-color="blue" title="青"><i style="background:#1e5bd8"></i></button>
+      <span class="sep"></span>
+      <button type="button" class="tool width" data-width="4" title="細"><i style="width:6px;height:6px"></i></button>
+      <button type="button" class="tool width on" data-width="8" title="中"><i style="width:11px;height:11px"></i></button>
+      <button type="button" class="tool width" data-width="16" title="太"><i style="width:18px;height:18px"></i></button>
+      <span class="sep"></span>
+      <button type="button" class="tool text-tool fe-eraser" title="消しゴム">消しゴム</button>
+      <button type="button" class="tool text-tool fe-undo" title="1つ戻す">↶ 戻す</button>
+      <button type="button" class="tool text-tool fe-clear" title="全部消す">全消し</button>
+    </div>
+    <div class="tool-row fe-text-tools" hidden>
+      <textarea class="fe-text" rows="3" maxlength="120" placeholder="ここに回答を入力（改行OK）"></textarea>
+    </div>
+  </template>
 
   <div id="toast" class="toast" hidden></div>
 </body>

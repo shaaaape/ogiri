@@ -1,6 +1,6 @@
 // 参加者画面
 import { Client, normalizeCode } from '../net.js';
-import { drawFlip, FLIP_W, FLIP_H, INK } from '../flip.js';
+import { createFlipEditor } from '../flipEditor.js';
 import { sanitizeName, flipHasContent } from '../state.js';
 import * as se from '../se.js';
 
@@ -32,10 +32,6 @@ export function startPlayerView({ code, name, clientId, onExit }) {
   document.body.classList.add('mode-player');
   let myName = sanitizeName(name);
 
-  const local = { mode: 'draw', strokes: [], text: '' }; // 自分のフリップ（ローカルが即時反映）
-  const tool = { color: INK.black, width: 8, erase: false };
-  let cur = null;          // 描いている途中の線
-  let curPointer = null;
   let me = null;           // 最新 state の自分
   let synced = false;      // 接続後の最初の state で同期したか
   let lastRound = null;
@@ -44,14 +40,16 @@ export function startPlayerView({ code, name, clientId, onExit }) {
   let openPending = false; // 「オープン」送信済みで反映待ち
   let offset = 0;          // ホスト時計との差
   let timer = { endsAt: null };
-  let textTimer = null;
-  let drawQueued = false;
   let changingTo = null;   // MC交代中なら新しいMCの名前（つながり直したら null）
   let takingOver = false;  // 自分が新しいMCになるところ
   let lastStatus = 'connecting';
 
-  const canvas = $('p-canvas');
-  const textArea = $('p-text');
+  // 自分のフリップ（編集はローカルで即時反映、変わったらホストへ送る）
+  const editor = createFlipEditor({
+    canvas: $('p-canvas'),
+    tools: $('p-tools'),
+    onChange: (flip) => sendFlip(flip),
+  });
   $('p-room').textContent = '部屋 ' + code;
   $('p-name').textContent = myName;
 
@@ -139,6 +137,10 @@ export function startPlayerView({ code, name, clientId, onExit }) {
       .sort((a, b) => (Number(a.hand.at) || 0) - (Number(b.hand.at) || 0))
       .forEach((p, i) => { p.hand = { ...p.hand, order: i + 1 }; });
     if (snap.stage && snap.stage.playerId === clientId) snap.stage = null;
+    // 並び順：前のMCの位置は外し、自分がいた位置に新しいMC（自分の 'host'）を置く
+    if (Array.isArray(snap.order)) {
+      snap.order = snap.order.filter((id) => id !== 'host').map((id) => (id === clientId ? 'host' : id));
+    }
     // タイマーの終了時刻を自分の時計に合わせる
     const sentAt = Number(msg.now);
     if (snap.timer && snap.timer.endsAt && sentAt) {
@@ -191,16 +193,12 @@ export function startPlayerView({ code, name, clientId, onExit }) {
     }, wait);
   }
 
-  function sendFlip() {
-    client.send({ t: 'flip', mode: local.mode, strokes: local.strokes, text: local.text });
+  function sendFlip(flip = editor.getFlip()) {
+    client.send({ t: 'flip', mode: flip.mode, strokes: flip.strokes, text: flip.text });
   }
 
   function clearLocal() {
-    local.strokes = [];
-    local.text = '';
-    textArea.value = '';
-    cur = null;
-    curPointer = null;
+    editor.clear();
   }
 
   function applyState(s) {
@@ -224,28 +222,18 @@ export function startPlayerView({ code, name, clientId, onExit }) {
     wasOnStage = nowOnStage;
     // 発表中はホストの内容が正（ステージに出ているものと同じにする）
     if (nowOnStage && mine && mine.flip) {
-      cur = null;
-      curPointer = null;
-      clearTimeout(textTimer);
-      local.mode = mine.flip.mode === 'text' ? 'text' : 'draw';
-      local.strokes = (mine.flip.strokes || []).slice();
-      local.text = mine.flip.text || '';
-      if (textArea.value !== local.text) textArea.value = local.text;
-      updateModeUI();
+      editor.setFlip(mine.flip);
       synced = true;
     }
     if (!synced && mine) {
       synced = true;
+      const local = editor.getFlip();
       if (flipHasContent(local)) {
         // オフライン中に書いた分をホストへ
         sendFlip();
       } else if (flipHasContent(mine.flip)) {
         // リロード後はホストの内容を復元
-        local.mode = mine.flip.mode === 'text' ? 'text' : 'draw';
-        local.strokes = (mine.flip.strokes || []).slice();
-        local.text = mine.flip.text || '';
-        textArea.value = local.text;
-        updateModeUI();
+        editor.setFlip(mine.flip);
       } else if (mine.flip && mine.flip.mode !== local.mode) {
         sendFlip();
       }
@@ -256,147 +244,12 @@ export function startPlayerView({ code, name, clientId, onExit }) {
       $('p-name').textContent = myName;
     }
     updateActionUI();
-    requestDraw();
-  }
-
-  // ---- 描画 ----
-  function requestDraw() {
-    if (drawQueued) return;
-    drawQueued = true;
-    requestAnimationFrame(() => {
-      drawQueued = false;
-      drawFlip(canvas, local, cur);
-    });
+    editor.redraw();
   }
 
   function onStage() {
     return !!(stage && stage.playerId === clientId);
   }
-
-  // 提出済み、または発表中は編集できない
-  function locked() {
-    return !!(me && me.submitted) || onStage();
-  }
-
-  function toLogical(e) {
-    const r = canvas.getBoundingClientRect();
-    return [
-      Math.round(((e.clientX - r.left) / r.width) * FLIP_W),
-      Math.round(((e.clientY - r.top) / r.height) * FLIP_H),
-    ];
-  }
-
-  canvas.addEventListener('pointerdown', (e) => {
-    if (local.mode !== 'draw' || locked()) return;
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (cur) return; // 2本目の指は無視
-    e.preventDefault();
-    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* 無視 */ }
-    curPointer = e.pointerId;
-    cur = {
-      color: tool.erase ? '#000' : tool.color,
-      width: tool.erase ? tool.width * 3 : tool.width,
-      erase: tool.erase,
-      pts: [toLogical(e)],
-    };
-    requestDraw();
-  });
-
-  canvas.addEventListener('pointermove', (e) => {
-    if (!cur || e.pointerId !== curPointer) return;
-    e.preventDefault();
-    const evs = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [];
-    const list = evs.length ? evs : [e];
-    for (const ev of list) {
-      const p = toLogical(ev);
-      const last = cur.pts[cur.pts.length - 1];
-      const dx = p[0] - last[0];
-      const dy = p[1] - last[1];
-      if (dx * dx + dy * dy >= 4) cur.pts.push(p);
-    }
-    requestDraw();
-  });
-
-  function endStroke(e) {
-    if (!cur || e.pointerId !== curPointer) return;
-    const last = cur.pts[cur.pts.length - 1];
-    const p = toLogical(e);
-    if (p[0] !== last[0] || p[1] !== last[1]) cur.pts.push(p);
-    local.strokes.push(cur);
-    cur = null;
-    curPointer = null;
-    requestDraw();
-    sendFlip();
-  }
-  canvas.addEventListener('pointerup', endStroke);
-  canvas.addEventListener('pointercancel', endStroke);
-  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
-  // ---- ツール ----
-  function updateModeUI() {
-    for (const b of $('p-mode').querySelectorAll('button')) b.classList.toggle('on', b.dataset.mode === local.mode);
-    $('p-draw-tools').hidden = local.mode !== 'draw';
-    $('p-text-tools').hidden = local.mode !== 'text';
-    canvas.classList.toggle('text-mode', local.mode === 'text');
-  }
-
-  function updateToolUI() {
-    for (const b of document.querySelectorAll('#p-draw-tools [data-color]')) {
-      b.classList.toggle('on', !tool.erase && INK[b.dataset.color] === tool.color);
-    }
-    for (const b of document.querySelectorAll('#p-draw-tools [data-width]')) {
-      b.classList.toggle('on', Number(b.dataset.width) === tool.width);
-    }
-    $('p-eraser').classList.toggle('on', tool.erase);
-  }
-
-  $('p-mode').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-mode]');
-    if (!b || b.dataset.mode === local.mode) return;
-    local.mode = b.dataset.mode;
-    cur = null;
-    updateModeUI();
-    requestDraw();
-    sendFlip();
-  });
-
-  for (const b of document.querySelectorAll('#p-draw-tools [data-color]')) {
-    b.addEventListener('click', () => {
-      tool.color = INK[b.dataset.color];
-      tool.erase = false;
-      updateToolUI();
-    });
-  }
-  for (const b of document.querySelectorAll('#p-draw-tools [data-width]')) {
-    b.addEventListener('click', () => {
-      tool.width = Number(b.dataset.width);
-      updateToolUI();
-    });
-  }
-  $('p-eraser').addEventListener('click', () => {
-    tool.erase = !tool.erase;
-    updateToolUI();
-  });
-  $('p-undo').addEventListener('click', () => {
-    if (locked() || !local.strokes.length) return;
-    local.strokes.pop();
-    requestDraw();
-    sendFlip();
-  });
-  $('p-clear').addEventListener('click', () => {
-    if (locked() || !local.strokes.length) return;
-    if (!window.confirm('手書きを全部消しますか？')) return;
-    local.strokes = [];
-    requestDraw();
-    sendFlip();
-  });
-
-  textArea.addEventListener('input', () => {
-    local.text = textArea.value;
-    requestDraw();
-    clearTimeout(textTimer);
-    textTimer = setTimeout(sendFlip, 300);
-  });
 
   // ---- 提出・挙手 ----
   function updateActionUI() {
@@ -444,8 +297,7 @@ export function startPlayerView({ code, name, clientId, onExit }) {
     ob.disabled = openPending;
     ob.textContent = openPending ? 'オープン中…' : 'フリップをオープン！';
     $('p-flip-wrap').classList.toggle('locked', lock);
-    textArea.disabled = lock;
-    for (const b of document.querySelectorAll('#p-draw-tools button, #p-mode button')) b.disabled = lock;
+    editor.setLocked(lock);
   }
 
   $('p-open').addEventListener('click', () => {
@@ -469,8 +321,7 @@ export function startPlayerView({ code, name, clientId, onExit }) {
       client.send({ t: 'submit', submitted: false });
       me = { ...me, submitted: false };
     } else {
-      clearTimeout(textTimer);
-      sendFlip();
+      editor.flush(); // 文字の送信待ちがあれば先に送る
       client.send({ t: 'submit', submitted: true });
       me = { ...me, submitted: true };
     }
@@ -527,12 +378,10 @@ export function startPlayerView({ code, name, clientId, onExit }) {
     const h = area.clientHeight;
     const fw = Math.max(160, Math.floor(Math.min(w, (h * 4) / 3)));
     wrap.style.width = fw + 'px';
-    requestDraw();
+    editor.redraw();
   }
   new ResizeObserver(fit).observe(area);
 
-  updateModeUI();
-  updateToolUI();
   updateActionUI();
   fit();
 }

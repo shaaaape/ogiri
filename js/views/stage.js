@@ -87,13 +87,14 @@ export function startStageView({ code, chroma, mute }) {
     el.innerHTML = `
       <div class="s-flip">
         <div class="flipper">
-          <div class="face cover"><div class="cover-text"><b class="cover-name"></b><span>さんの回答</span></div></div>
+          <div class="face cover"><div class="cover-text"><div class="cover-row"><b class="cover-name"></b><small class="mc-tag" hidden>MC</small></div><span>さんの回答</span></div></div>
           <div class="face content"><canvas class="flip-canvas"></canvas></div>
         </div>
       </div>
-      <div class="s-name"><span class="nm"></span></div>`;
+      <div class="s-name"><span class="nm"></span><small class="mc-tag" hidden>MC</small></div>`;
     el.querySelector('.cover-name').textContent = p.name;
     el.querySelector('.nm').textContent = p.name;
+    for (const t of el.querySelectorAll('.mc-tag')) t.hidden = !p.isHost;
     el.addEventListener('animationend', (e) => {
       if (e.animationName === 's-enter') el.classList.remove('entering');
     });
@@ -168,12 +169,13 @@ export function startStageView({ code, chroma, mute }) {
     const el = document.createElement('div');
     el.className = 's-pl';
     el.innerHTML = `
-      <span class="s-pl-name"></span>
+      <span class="s-pl-name"><span class="nm"></span><small class="mc-tag" hidden>MC</small></span>
       <span class="s-pl-st"></span>
       <span class="s-hand">✋<b></b></span>`;
     return {
       el,
-      name: el.querySelector('.s-pl-name'),
+      name: el.querySelector('.s-pl-name .nm'),
+      mc: el.querySelector('.s-pl-name .mc-tag'),
       st: el.querySelector('.s-pl-st'),
       handNum: el.querySelector('.s-hand b'),
     };
@@ -182,6 +184,12 @@ export function startStageView({ code, chroma, mute }) {
   function renderStrip(s) {
     const players = s.players || [];
     const ids = new Set(players.map((p) => p.id));
+    // 並び順が変わったか（MCがドラッグで並び替えた）。変わったら移動をアニメーションする
+    const prevOrder = [...strip.children].map((el) => el.dataset.id).filter((id) => ids.has(id));
+    const nextOrder = players.map((p) => p.id).filter((id) => items.has(id));
+    const reordered = prevOrder.join('\n') !== nextOrder.join('\n');
+    const before = new Map();
+    if (reordered) for (const [id, it] of items) before.set(id, it.el.getBoundingClientRect().left);
     for (const [id, it] of items) {
       if (!ids.has(id)) {
         it.el.remove();
@@ -192,16 +200,41 @@ export function startStageView({ code, chroma, mute }) {
       let it = items.get(p.id);
       if (!it) {
         it = makeItem();
+        it.el.dataset.id = p.id;
         items.set(p.id, it);
       }
+      // 要素は作り直さずに移動する
       if (strip.children[i] !== it.el) strip.insertBefore(it.el, strip.children[i] || null);
       const st = playerStatus(p, s.stage);
-      it.el.className = 's-pl st-' + st + (p.hand.raised ? ' raised' : '');
+      it.el.className = 's-pl st-' + st + (p.hand.raised ? ' raised' : '') + (p.isHost ? ' is-host' : '');
       it.name.textContent = p.name;
+      it.mc.hidden = !p.isHost;
       it.st.textContent = STATUS_LABEL[st];
       it.handNum.textContent = p.hand.raised ? String(p.hand.order) : '';
     });
     strip.style.setProperty('--n', Math.max(1, players.length));
+    if (reordered) slideFrom(before);
+  }
+
+  // FLIP：前の位置からずらした状態で置き、transition で今の位置へ滑らせる
+  function slideFrom(before) {
+    const moved = [];
+    for (const [id, it] of items) {
+      if (!before.has(id)) continue;
+      const dx = before.get(id) - it.el.getBoundingClientRect().left;
+      if (Math.abs(dx) < 1) continue;
+      it.el.style.transition = 'none';
+      it.el.style.transform = `translateX(${dx}px)`;
+      moved.push(it.el);
+    }
+    if (!moved.length) return;
+    void strip.offsetWidth; // 位置を確定させてからアニメーション開始
+    for (const el of moved) {
+      el.style.transition = 'transform .4s cubic-bezier(.3, .7, .3, 1)';
+      el.style.transform = '';
+      clearTimeout(el._slideT);
+      el._slideT = setTimeout(() => { el.style.transition = ''; }, 450);
+    }
   }
 
   // ---- 状態の反映 ----
