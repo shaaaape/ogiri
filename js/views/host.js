@@ -1,6 +1,6 @@
 // MC画面（ホスト）
 import { startHost, genCode } from '../net.js';
-import { HostState } from '../state.js';
+import { HostState, playerStatus, STATUS_LABEL } from '../state.js';
 import { drawFlip } from '../flip.js';
 import * as se from '../se.js';
 
@@ -10,6 +10,13 @@ const LS_TOPICS = 'ogiri.topics';
 const SS_ROOM = 'ogiri.hostRoom';
 const SS_STATE = 'ogiri.hostState';
 const SS_USED = 'ogiri.usedTopics';
+const LS_AUTO_DON = 'ogiri.autoDon';
+
+const pad2 = (n) => String(n).padStart(2, '0');
+function hhmm(ms) {
+  const d = new Date(ms);
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
 
 const SAMPLE_TOPICS = [
   'こんなコンビニは嫌だ',
@@ -65,6 +72,10 @@ export function startHostView() {
   const cards = new Map(); // playerId -> カード要素
   let firedFor = state.timer.endsAt && state.timer.endsAt <= Date.now() ? state.timer.endsAt : null;
   let saveTimer = null;
+  let historyKey = null;
+  // リロード復元時に既にオープン済みならドンを鳴らし直さない
+  const stageKey = (st) => st.playerId + ':' + st.since;
+  let lastOpenKey = state.stage && state.stage.opened ? stageKey(state.stage) : null;
 
   $('h-code').textContent = code;
 
@@ -160,6 +171,7 @@ export function startHostView() {
       case 'submit': state.setSubmitted(m.id, !!msg.submitted); break;
       case 'hand': state.setHand(m.id, !!msg.raised); break;
       case 'rename': state.rename(m.id, msg.name); break;
+      case 'open': state.openStage(m.id); break;
       default: break;
     }
   }
@@ -178,6 +190,12 @@ export function startHostView() {
   // ---- 状態変更 → 全員へ送信・画面更新 ----
   function onStateChange(snap) {
     broadcast({ t: 'state', ...snap });
+    // オープンされた瞬間（false→true）にドン
+    const st = snap.stage;
+    if (st && st.opened && stageKey(st) !== lastOpenKey) {
+      lastOpenKey = stageKey(st);
+      if ($('h-auto-don').checked) fireSE('don');
+    }
     render(snap);
     scheduleSave();
   }
@@ -200,6 +218,7 @@ export function startHostView() {
     nt.classList.toggle('empty', !s.topic);
     renderPlayers(s, false);
     renderHands(s);
+    renderHistory(false);
     updateCount();
   }
 
@@ -216,8 +235,9 @@ export function startHostView() {
         <span class="pcard-badge"></span>
       </div>
       <div class="pcard-btns">
-        <button type="button" class="btn small b-reveal">公開</button>
-        <button type="button" class="btn small b-spot">スポットライト</button>
+        <button type="button" class="btn small primary b-call">ステージへ</button>
+        <button type="button" class="btn small primary b-open">オープン（MC側で）</button>
+        <button type="button" class="btn small b-dismiss">下げる</button>
         <button type="button" class="btn small danger b-kick">退室させる</button>
       </div>`;
     const c = {
@@ -226,16 +246,18 @@ export function startHostView() {
       hand: el.querySelector('.pcard-hand'),
       canvas: el.querySelector('canvas'),
       badge: el.querySelector('.pcard-badge'),
-      reveal: el.querySelector('.b-reveal'),
-      spot: el.querySelector('.b-spot'),
+      call: el.querySelector('.b-call'),
+      open: el.querySelector('.b-open'),
+      dismiss: el.querySelector('.b-dismiss'),
+      kick: el.querySelector('.b-kick'),
       rev: -1,
     };
-    c.reveal.addEventListener('click', () => {
-      const p = state.get(id);
-      if (p) state.setRevealed(id, !p.revealed);
+    c.call.addEventListener('click', () => state.callToStage(id));
+    c.open.addEventListener('click', () => state.openStage());
+    c.dismiss.addEventListener('click', () => {
+      if (state.isOnStage(id)) state.dismissStage();
     });
-    c.spot.addEventListener('click', () => state.toggleSpotlight(id));
-    el.querySelector('.b-kick').addEventListener('click', () => {
+    c.kick.addEventListener('click', () => {
       const p = state.get(id);
       if (p && window.confirm(`「${p.name}」を退室させますか？（フリップも消えます）`)) kick(id);
     });
@@ -258,18 +280,19 @@ export function startHostView() {
         cards.set(p.id, c);
       }
       if (grid.children[i] !== c.el) grid.insertBefore(c.el, grid.children[i] || null);
+      const onStage = !!(s.stage && s.stage.playerId === p.id);
+      const opened = onStage && s.stage.opened;
+      const st = playerStatus(p, s.stage);
       c.el.classList.toggle('off', !p.connected);
-      c.el.classList.toggle('revealed', p.revealed);
-      c.el.classList.toggle('spot', s.spotlightId === p.id);
+      c.el.classList.toggle('onstage', onStage);
       c.name.textContent = p.name + (p.connected ? '' : '（切断中）');
       c.hand.textContent = p.hand.raised ? `✋ ${p.hand.order}` : '';
-      const badge = p.revealed ? ['公開中', 'b-open'] : p.submitted ? ['提出済', 'b-done'] : ['書き中', 'b-writing'];
-      c.badge.textContent = badge[0];
-      c.badge.className = 'pcard-badge ' + badge[1];
-      c.reveal.textContent = p.revealed ? '伏せる' : '公開';
-      c.reveal.classList.toggle('primary', !p.revealed);
-      c.spot.textContent = s.spotlightId === p.id ? 'スポット解除' : 'スポットライト';
-      c.spot.classList.toggle('on', s.spotlightId === p.id);
+      c.badge.textContent = st === 'onstage' ? (opened ? '発表中（オープン）' : '発表中') : STATUS_LABEL[st];
+      c.badge.className = 'pcard-badge st-' + st;
+      c.call.hidden = onStage;
+      c.kick.hidden = onStage;
+      c.open.hidden = !onStage || opened;
+      c.dismiss.hidden = !onStage;
       if (force || c.rev !== p.rev) {
         c.rev = p.rev;
         drawFlip(c.canvas, p.flip);
@@ -291,10 +314,45 @@ export function startHostView() {
     }
     for (const p of raised) {
       const li = document.createElement('li');
-      li.textContent = p.name;
+      const nm = document.createElement('span');
+      nm.className = 'hand-name';
+      nm.textContent = p.name;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn small primary';
+      btn.textContent = 'ステージへ';
+      btn.addEventListener('click', () => state.callToStage(p.id));
+      li.append(nm, btn);
       ol.appendChild(li);
     }
   }
+
+  // 回答履歴（新しい順）。中身が変わったときだけ作り直す
+  function renderHistory(force) {
+    const list = state.history;
+    const key = list.map((h) => h.id).join(',');
+    $('h-history-count').textContent = list.length ? `${list.length}件` : '';
+    $('h-history-empty').hidden = list.length > 0;
+    if (!force && key === historyKey) return;
+    historyKey = key;
+    const box = $('h-history');
+    box.innerHTML = '';
+    for (const h of list.slice().reverse()) {
+      const item = document.createElement('div');
+      item.className = 'hist-item';
+      item.innerHTML = `
+        <div class="hist-flip"><canvas class="flip-canvas"></canvas></div>
+        <div class="hist-meta"><span class="hist-name"></span><span class="hist-time muted small"></span></div>`;
+      item.querySelector('.hist-name').textContent = h.name;
+      item.querySelector('.hist-time').textContent = hhmm(h.at);
+      box.appendChild(item);
+      drawFlip(item.querySelector('canvas'), h.flip);
+    }
+  }
+  $('h-history-clear').addEventListener('click', () => {
+    if (!state.history.length) return;
+    if (window.confirm('回答履歴を消しますか？')) state.clearHistory();
+  });
 
   function updateCount() {
     const players = state.connectedCount();
@@ -376,8 +434,6 @@ export function startHostView() {
   updateLeft();
 
   // ---- 全体操作 ----
-  $('h-reveal-all').addEventListener('click', () => state.revealAll(true));
-  $('h-hide-all').addEventListener('click', () => state.revealAll(false));
   $('h-clear-all').addEventListener('click', () => state.clearAll());
   $('h-hands-reset').addEventListener('click', () => state.resetHands());
 
@@ -410,6 +466,16 @@ export function startHostView() {
     se.playSE(id);
     broadcast({ t: 'se', id });
   }
+
+  // 「オープン時に自動でドン」の設定（localStorage）
+  const autoDon = $('h-auto-don');
+  try {
+    const v = localStorage.getItem(LS_AUTO_DON);
+    if (v != null) autoDon.checked = v === '1';
+  } catch (e) { /* 無視 */ }
+  autoDon.addEventListener('change', () => {
+    try { localStorage.setItem(LS_AUTO_DON, autoDon.checked ? '1' : '0'); } catch (e) { /* 無視 */ }
+  });
 
   const builtin = $('h-se-builtin');
   for (const b of se.BUILTIN_SE) {

@@ -76,7 +76,7 @@
             <input id="h-topic-input" class="grow" placeholder="お題を入力して「出題」">
             <button id="h-topic-send" class="btn primary" type="button">出題</button>
           </div>
-          <label class="check"><input type="checkbox" id="h-auto-reset" checked> 出題時に全フリップを伏せ・挙手をリセット</label>
+          <label class="check"><input type="checkbox" id="h-auto-reset" checked> 出題時にリセット<span class="muted small">（全員のフリップ・挙手・ステージ・回答履歴）</span></label>
           <div class="topic-list-box">
             <div class="row between">
               <span class="label">お題リスト（1行1お題・自動保存）</span>
@@ -91,14 +91,21 @@
           <div class="panel-head">
             <h2>参加者</h2>
             <div class="bulk">
-              <button id="h-reveal-all" class="btn" type="button">全部公開</button>
-              <button id="h-hide-all" class="btn" type="button">全部伏せる</button>
               <button id="h-clear-all" class="btn danger" type="button">全部クリア（次の回へ）</button>
               <button id="h-hands-reset" class="btn" type="button">挙手リセット</button>
             </div>
           </div>
           <p id="h-empty" class="muted">まだ誰も参加していません。「参加用URLをコピー」して友達に送りましょう。</p>
           <div id="h-players" class="player-grid"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>回答履歴（このお題） <span id="h-history-count" class="muted small"></span></h2>
+            <button id="h-history-clear" class="btn small" type="button">履歴を消す</button>
+          </div>
+          <p id="h-history-empty" class="muted small">発表が終わった回答（「下げる」を押したもの）がここに残ります。お題を変えると消えます。</p>
+          <div id="h-history" class="history-grid"></div>
         </section>
       </div>
 
@@ -123,6 +130,7 @@
           <h2>SEパッド</h2>
           <div id="h-se-builtin" class="se-grid"></div>
           <div id="h-se-custom" class="se-grid custom"></div>
+          <label class="check"><input type="checkbox" id="h-auto-don" checked> オープン時に自動でドンを鳴らす</label>
           <label class="btn file-btn">＋ mp3を追加<input type="file" id="h-se-file" accept="audio/*,.mp3,.m4a,.wav,.ogg" multiple hidden></label>
           <p class="muted small">追加したボタンは長押し（または×）で削除、✎で名前変更。1.5MB以下なら参加者の画面でも鳴ります。</p>
           <div class="row">
@@ -152,7 +160,11 @@
       <div id="p-flip-wrap" class="flip-wrap">
         <canvas id="p-canvas" class="flip-canvas"></canvas>
         <div id="p-badge" class="flip-badge" hidden></div>
-        <div id="p-lock" class="flip-lock" hidden>提出済み<br><small>直すときは「書き直す」</small></div>
+        <div id="p-lock" class="flip-lock" hidden><span id="p-lock-main">提出済み</span><br><small id="p-lock-sub">直すときは「書き直す」</small></div>
+        <div id="p-turn" class="flip-turn" hidden>
+          <div class="flip-turn-title">あなたの番です！</div>
+          <button id="p-open" class="btn primary big flip-turn-btn" type="button">フリップをオープン！</button>
+        </div>
       </div>
     </div>
 
@@ -193,9 +205,8 @@
         <div id="s-topic" class="s-topic"><span></span></div>
         <div id="s-timer" class="s-timer" hidden></div>
       </div>
-      <div id="s-grid" class="s-grid"><div id="s-grid-inner" class="s-grid-inner"></div></div>
-      <div id="s-waiting" class="s-waiting" hidden>参加者を待っています…</div>
-      <div id="s-spot" class="s-spot" hidden></div>
+      <div id="s-main" class="s-main"></div>
+      <div id="s-strip" class="s-strip"></div>
       <div id="s-status" class="s-status">接続しています…</div>
       <div id="s-audio-hint" class="s-audio-hint" hidden>クリックでSEを有効化</div>
     </div>

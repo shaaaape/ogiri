@@ -1,6 +1,7 @@
 // 効果音：内蔵SE（Web Audioで合成）＋カスタムSE（IndexedDB保存）
 
 export const BUILTIN_SE = [
+  { id: 'don', name: 'ドン' },
   { id: 'drumroll', name: 'ドラムロール' },
   { id: 'jan', name: 'ジャン' },
   { id: 'pinpon', name: 'ピンポン' },
@@ -87,6 +88,7 @@ export function playSE(id) {
   const t = c.currentTime + 0.03;
   try {
     switch (id) {
+      case 'don': don(t); break;
       case 'drumroll': drumroll(t); break;
       case 'jan': jan(t); break;
       case 'pinpon': pinpon(t); break;
@@ -145,6 +147,23 @@ function noise(t, decay, peak, filterType, freq, q = 1, dest = master) {
   g.connect(dest);
   s.start(t, Math.random() * 1.0);
   s.stop(t + decay + 0.05);
+}
+
+// ドン：太鼓一発（低いサイン波のピッチ下降＋ノイズの短い減衰）
+function don(t) {
+  const o = ctx.createOscillator();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(150, t);
+  o.frequency.exponentialRampToValueAtTime(58, t + 0.35);
+  const g = ctx.createGain();
+  env(g, t, 0.004, 0.9, 0.7);
+  o.connect(g);
+  g.connect(master);
+  o.start(t);
+  o.stop(t + 0.8);
+  tone('sine', 98, t, 0.45, 0.35, 0.003);            // 胴鳴り
+  noise(t, 0.12, 0.35, 'lowpass', 900, 0.8);          // 皮を打つアタック
+  noise(t, 0.05, 0.12, 'bandpass', 2500, 1.2);        // バチの当たり
 }
 
 // ドラムロール：ノイズ＋低音の連打を約2秒、最後にジャン

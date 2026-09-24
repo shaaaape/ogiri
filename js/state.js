@@ -3,6 +3,7 @@
 const MAX_STROKES = 3000;
 const MAX_PTS = 4000;
 const MAX_TEXT = 200;
+const MAX_HISTORY = 100;
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
@@ -12,6 +13,24 @@ export function emptyFlip(mode = 'draw') {
 
 export function flipHasContent(f) {
   return !!f && ((f.strokes && f.strokes.length > 0) || (typeof f.text === 'string' && f.text.trim() !== ''));
+}
+
+// 表示用ステータス（MC画面・ステージ画面で共用）
+export const STATUS_LABEL = {
+  off: '切断',
+  onstage: '発表中',
+  submitted: '提出済み',
+  writing: '記入中',
+  idle: '待機中',
+};
+
+export function playerStatus(p, stage) {
+  if (!p) return 'idle';
+  if (!p.connected) return 'off';
+  if (stage && stage.playerId === p.id) return 'onstage';
+  if (p.submitted) return 'submitted';
+  if (flipHasContent(p.flip)) return 'writing';
+  return 'idle';
 }
 
 export function sanitizeName(s) {
@@ -42,17 +61,24 @@ export function sanitizeFlip(f) {
   return { mode, strokes, text };
 }
 
+function sanitizeStage(o) {
+  if (!o || typeof o !== 'object' || !o.playerId) return null;
+  return { playerId: String(o.playerId), opened: !!o.opened, since: Number(o.since) || Date.now() };
+}
+
 export class HostState {
   constructor(room, onChange) {
     this.room = room;
     this.onChange = onChange;
     this.topic = '';
     this.players = [];
-    this.spotlightId = null;
+    this.stage = null;   // { playerId, opened, since } 中央に出ている人
+    this.history = [];   // [{ id, name, flip, at }] このお題で発表済みの回答（クライアントへは送らない）
     this.timer = { endsAt: null, total: 60 };
     this.round = 0;
     this.seq = 0;
     this._handClock = 0;
+    this._histSeq = 0;
     this._t = null;
   }
 
@@ -66,12 +92,11 @@ export class HostState {
         name: p.name,
         connected: p.connected,
         submitted: p.submitted,
-        revealed: p.revealed,
         hand: p.hand.raised ? { raised: true, order: p.hand.order } : { raised: false },
         flip: p.flip,
         rev: p.rev,
       })),
-      spotlightId: this.spotlightId,
+      stage: this.stage ? { ...this.stage } : null,
       timer: { endsAt: this.timer.endsAt, total: this.timer.total },
       round: this.round,
       now: Date.now(),
@@ -89,17 +114,18 @@ export class HostState {
     }, 50);
   }
 
-  // sessionStorage 保存用
+  // sessionStorage 保存用（容量オーバー時は withFlips=false で中身を省く）
   toSave(withFlips = true) {
     return {
       room: this.room,
       topic: this.topic,
       round: this.round,
-      spotlightId: this.spotlightId,
+      stage: this.stage,
+      history: this.history.map((h) => ({ ...h, flip: withFlips ? h.flip : emptyFlip(h.flip.mode) })),
       timer: this.timer,
       handClock: this._handClock,
       players: this.players.map((p) => ({
-        id: p.id, name: p.name, submitted: p.submitted, revealed: p.revealed,
+        id: p.id, name: p.name, submitted: p.submitted,
         hand: p.hand, rev: p.rev, flip: withFlips ? p.flip : emptyFlip(p.flip.mode),
       })),
     };
@@ -110,7 +136,6 @@ export class HostState {
     if (!o || typeof o !== 'object') return;
     this.topic = typeof o.topic === 'string' ? o.topic : '';
     this.round = Number(o.round) || 0;
-    this.spotlightId = o.spotlightId || null;
     if (o.timer && typeof o.timer === 'object') {
       this.timer = { endsAt: Number(o.timer.endsAt) || null, total: Number(o.timer.total) || 60 };
     }
@@ -120,13 +145,22 @@ export class HostState {
       name: sanitizeName(p.name),
       connected: false,
       submitted: !!p.submitted,
-      revealed: !!p.revealed,
       hand: p.hand && p.hand.raised ? { raised: true, at: Number(p.hand.at) || 0, order: 0 } : { raised: false },
       flip: sanitizeFlip(p.flip),
       rev: (Number(p.rev) || 0) + 1,
     }));
     this._renumber();
-    if (this.spotlightId && !this.get(this.spotlightId)) this.spotlightId = null;
+    this.stage = sanitizeStage(o.stage);
+    if (this.stage && !this.get(this.stage.playerId)) this.stage = null;
+    this.history = (Array.isArray(o.history) ? o.history : [])
+      .filter((h) => h && typeof h === 'object')
+      .slice(-MAX_HISTORY)
+      .map((h, i) => ({
+        id: String(h.id || 'h' + i),
+        name: sanitizeName(h.name),
+        flip: sanitizeFlip(h.flip),
+        at: Number(h.at) || Date.now(),
+      }));
   }
 
   get(id) {
@@ -137,6 +171,10 @@ export class HostState {
     return this.players.filter((p) => p.connected).length;
   }
 
+  isOnStage(id) {
+    return !!(this.stage && this.stage.playerId === id);
+  }
+
   // 入室（同じ clientId なら復帰）
   join(id, name) {
     let p = this.get(id);
@@ -145,7 +183,7 @@ export class HostState {
       if (name) p.name = sanitizeName(name);
     } else {
       p = {
-        id, name: sanitizeName(name), connected: true, submitted: false, revealed: false,
+        id, name: sanitizeName(name), connected: true, submitted: false,
         hand: { raised: false }, flip: emptyFlip(), rev: 0,
       };
       this.players.push(p);
@@ -163,7 +201,7 @@ export class HostState {
 
   setFlip(id, flip) {
     const p = this.get(id);
-    if (!p) return;
+    if (!p || this.isOnStage(id)) return; // 発表中は内容を固定
     p.flip = sanitizeFlip(flip);
     p.rev++;
     this.changed();
@@ -171,15 +209,15 @@ export class HostState {
 
   setSubmitted(id, on) {
     const p = this.get(id);
-    if (!p) return;
+    if (!p || this.isOnStage(id)) return;
     p.submitted = !!on;
-    if (!on) p.revealed = false;
     this.changed();
   }
 
   setHand(id, raised) {
     const p = this.get(id);
     if (!p) return;
+    if (raised && this.isOnStage(id)) return; // 発表中は挙手できない
     if (raised && !p.hand.raised) p.hand = { raised: true, at: ++this._handClock, order: 0 };
     else if (!raised) p.hand = { raised: false };
     this._renumber();
@@ -199,43 +237,31 @@ export class HostState {
     this.changed();
   }
 
-  setTopic(topic, reset) {
-    this.topic = String(topic || '').slice(0, 200);
-    if (reset) {
-      for (const p of this.players) {
-        p.revealed = false;
-        p.hand = { raised: false };
-      }
-      this.spotlightId = null;
-    }
-    this.changed();
-  }
-
-  setRevealed(id, on) {
-    const p = this.get(id);
-    if (!p) return;
-    p.revealed = !!on;
-    if (!on && this.spotlightId === id) this.spotlightId = null;
-    this.changed();
-  }
-
-  revealAll(on) {
-    for (const p of this.players) p.revealed = !!on;
-    if (!on) this.spotlightId = null;
-    this.changed();
-  }
-
-  // 次の回へ：全員のフリップを空にする
-  clearAll() {
+  // 全員のフリップ・提出・挙手を空にしてステージも下げる（round を進める）
+  _clearFlips() {
     this.round++;
     for (const p of this.players) {
       p.flip = emptyFlip(p.flip.mode);
       p.rev++;
       p.submitted = false;
-      p.revealed = false;
       p.hand = { raised: false };
     }
-    this.spotlightId = null;
+    this.stage = null;
+  }
+
+  // お題の変更。reset なら全員のフリップ・挙手・ステージ・履歴をリセット
+  setTopic(topic, reset) {
+    this.topic = String(topic || '').slice(0, 200);
+    if (reset) {
+      this._clearFlips();
+      this.history = [];
+    }
+    this.changed();
+  }
+
+  // 全部クリア（次の回へ）。履歴は残す
+  clearAll() {
+    this._clearFlips();
     this.changed();
   }
 
@@ -244,14 +270,56 @@ export class HostState {
     this.changed();
   }
 
-  toggleSpotlight(id) {
-    this.spotlightId = this.spotlightId === id ? null : id;
+  // ステージへ呼ぶ（既に誰かいれば入れ替え。前の人は履歴に入れずそのまま戻す）
+  callToStage(id) {
+    const p = this.get(id);
+    if (!p) return;
+    if (p.hand.raised) {
+      p.hand = { raised: false };
+      this._renumber();
+    }
+    this.stage = { playerId: id, opened: false, since: Date.now() };
+    this.changed();
+  }
+
+  // フリップをオープン。byId 指定時は発表中の本人のときだけ受理。オープンしたら true
+  openStage(byId = null) {
+    if (!this.stage || this.stage.opened) return false;
+    if (byId != null && this.stage.playerId !== byId) return false;
+    this.stage = { ...this.stage, opened: true };
+    this.changed();
+    return true;
+  }
+
+  // 下げる：回答を履歴に移し、その人のフリップを白紙に戻す
+  dismissStage() {
+    if (!this.stage) return;
+    const p = this.get(this.stage.playerId);
+    this.stage = null;
+    if (p) {
+      const now = Date.now();
+      this.history.push({
+        id: 'h' + now.toString(36) + '-' + (++this._histSeq),
+        name: p.name,
+        flip: JSON.parse(JSON.stringify(p.flip)),
+        at: now,
+      });
+      if (this.history.length > MAX_HISTORY) this.history.splice(0, this.history.length - MAX_HISTORY);
+      p.flip = emptyFlip(p.flip.mode);
+      p.submitted = false;
+      p.rev++;
+    }
+    this.changed();
+  }
+
+  clearHistory() {
+    this.history = [];
     this.changed();
   }
 
   remove(id) {
     this.players = this.players.filter((p) => p.id !== id);
-    if (this.spotlightId === id) this.spotlightId = null;
+    if (this.isOnStage(id)) this.stage = null;
     this._renumber();
     this.changed();
   }

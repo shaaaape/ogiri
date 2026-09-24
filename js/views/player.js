@@ -32,6 +32,9 @@ export function startPlayerView({ code, name, clientId, onExit }) {
   let me = null;           // 最新 state の自分
   let synced = false;      // 接続後の最初の state で同期したか
   let lastRound = null;
+  let stage = null;        // 最新 state の stage
+  let wasOnStage = false;  // 直前まで自分が発表中だったか
+  let openPending = false; // 「オープン」送信済みで反映待ち
   let offset = 0;          // ホスト時計との差
   let timer = { endsAt: null };
   let textTimer = null;
@@ -108,6 +111,25 @@ export function startPlayerView({ code, name, clientId, onExit }) {
     lastRound = s.round;
 
     const mine = (s.players || []).find((p) => p.id === clientId) || null;
+    const prevStage = stage;
+    stage = s.stage || null;
+    const nowOnStage = !!(stage && stage.playerId === clientId);
+    if (!nowOnStage || stage.opened || !prevStage || prevStage.since !== stage.since) openPending = false;
+    // MCに下げられた（ステージから外れてフリップが白紙に戻った）ら通常状態へ
+    if (wasOnStage && !nowOnStage && mine && !flipHasContent(mine.flip)) clearLocal();
+    wasOnStage = nowOnStage;
+    // 発表中はホストの内容が正（ステージに出ているものと同じにする）
+    if (nowOnStage && mine && mine.flip) {
+      cur = null;
+      curPointer = null;
+      clearTimeout(textTimer);
+      local.mode = mine.flip.mode === 'text' ? 'text' : 'draw';
+      local.strokes = (mine.flip.strokes || []).slice();
+      local.text = mine.flip.text || '';
+      if (textArea.value !== local.text) textArea.value = local.text;
+      updateModeUI();
+      synced = true;
+    }
     if (!synced && mine) {
       synced = true;
       if (flipHasContent(local)) {
@@ -143,8 +165,13 @@ export function startPlayerView({ code, name, clientId, onExit }) {
     });
   }
 
+  function onStage() {
+    return !!(stage && stage.playerId === clientId);
+  }
+
+  // 提出済み、または発表中は編集できない
   function locked() {
-    return !!(me && me.submitted);
+    return !!(me && me.submitted) || onStage();
   }
 
   function toLogical(e) {
@@ -270,40 +297,73 @@ export function startPlayerView({ code, name, clientId, onExit }) {
   // ---- 提出・挙手 ----
   function updateActionUI() {
     const submitted = !!(me && me.submitted);
-    const revealed = !!(me && me.revealed);
+    const mine = onStage();
+    const opened = mine && !!stage.opened;
+    const lock = submitted || mine;
     const raised = !!(me && me.hand && me.hand.raised);
     const sb = $('p-submit');
-    sb.textContent = submitted ? '書き直す' : '提出する';
-    sb.classList.toggle('primary', !submitted);
+    sb.textContent = submitted && !mine ? '書き直す' : '提出する';
+    sb.classList.toggle('primary', !submitted || mine);
+    sb.disabled = mine;
     const hb = $('p-hand');
     hb.textContent = raised ? `✋ ${me.hand.order || '…'}番目（取り下げ）` : '✋ 挙手';
     hb.classList.toggle('on', raised);
+    hb.disabled = mine;
     const badge = $('p-badge');
-    if (revealed) {
-      badge.textContent = '公開中';
+    if (opened) {
+      badge.textContent = 'オープン中';
       badge.className = 'flip-badge b-open';
       badge.hidden = false;
-    } else if (submitted) {
+    } else if (submitted && !mine) {
       badge.textContent = '提出済';
       badge.className = 'flip-badge b-done';
       badge.hidden = false;
     } else {
       badge.hidden = true;
     }
-    $('p-lock').hidden = !submitted;
-    $('p-flip-wrap').classList.toggle('locked', submitted);
-    textArea.disabled = submitted;
-    for (const b of document.querySelectorAll('#p-draw-tools button, #p-mode button')) b.disabled = submitted;
+    // 下部の帯：提出済み or オープン中
+    const lockEl = $('p-lock');
+    if (opened) {
+      $('p-lock-main').textContent = '発表中';
+      $('p-lock-sub').textContent = 'MCが下げると次の回答を書けます';
+      lockEl.hidden = false;
+    } else if (submitted && !mine) {
+      $('p-lock-main').textContent = '提出済み';
+      $('p-lock-sub').textContent = '直すときは「書き直す」';
+      lockEl.hidden = false;
+    } else {
+      lockEl.hidden = true;
+    }
+    // 自分の番（未オープン）：大きなオーバーレイ
+    $('p-turn').hidden = !(mine && !opened);
+    const ob = $('p-open');
+    ob.disabled = openPending;
+    ob.textContent = openPending ? 'オープン中…' : 'フリップをオープン！';
+    $('p-flip-wrap').classList.toggle('locked', lock);
+    textArea.disabled = lock;
+    for (const b of document.querySelectorAll('#p-draw-tools button, #p-mode button')) b.disabled = lock;
   }
+
+  $('p-open').addEventListener('click', () => {
+    if (!onStage() || stage.opened || openPending) return;
+    if (!client.connected) {
+      toast('まだ接続されていません');
+      return;
+    }
+    client.send({ t: 'open' });
+    openPending = true;
+    updateActionUI();
+  });
 
   $('p-submit').addEventListener('click', () => {
     if (!me || !client.connected) {
       toast('まだ接続されていません');
       return;
     }
+    if (onStage()) return;
     if (me.submitted) {
       client.send({ t: 'submit', submitted: false });
-      me = { ...me, submitted: false, revealed: false };
+      me = { ...me, submitted: false };
     } else {
       clearTimeout(textTimer);
       sendFlip();
@@ -318,6 +378,7 @@ export function startPlayerView({ code, name, clientId, onExit }) {
       toast('まだ接続されていません');
       return;
     }
+    if (onStage()) return;
     const raised = !!(me.hand && me.hand.raised);
     client.send({ t: 'hand', raised: !raised });
     me = { ...me, hand: raised ? { raised: false } : { raised: true, order: 0 } };

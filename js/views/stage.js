@@ -1,6 +1,8 @@
 // ステージ画面（OBS取り込み用）
+// 中央：MCが呼んだ1人のフリップだけを大きく表示。下部：回答者のステータス一列
 import { Client } from '../net.js';
 import { drawFlip } from '../flip.js';
+import { playerStatus, STATUS_LABEL } from '../state.js';
 import * as se from '../se.js';
 
 const $ = (id) => document.getElementById(id);
@@ -11,26 +13,19 @@ function toArrayBuffer(d) {
   return null;
 }
 
-// 人数に応じた列数
-function colsFor(n) {
-  if (n <= 4) return 2;
-  if (n <= 9) return 3;
-  return 4;
-}
-
 export function startStageView({ code, chroma, mute }) {
   document.body.classList.add('mode-stage');
   if (chroma) document.body.classList.add('chroma');
   se.setMuted(!!mute);
 
   const stageId = 'stage-' + Math.random().toString(36).slice(2, 10);
-  const inner = $('s-grid-inner');
-  const cards = new Map(); // id -> カード
+  const main = $('s-main');
+  const strip = $('s-strip');
+  const items = new Map(); // playerId -> ステータス行の要素
   let snap = null;
   let offset = 0;
-  let spot = null;         // { id, card }
   let lastTopic = null;
-  let lastCw = 0;
+  let current = null;      // { key, playerId, el, canvas, name, rev }
 
   const client = new Client(code, {
     onOpen() {
@@ -72,38 +67,128 @@ export function startStageView({ code, chroma, mute }) {
     $('s-audio-hint').hidden = true;
   });
 
-  // ---- カード ----
-  function makeCard(big = false) {
+  // ---- 中央のフリップ ----
+  function makeCard(p, opened) {
     const el = document.createElement('div');
-    el.className = 's-card' + (big ? ' big' : '');
+    el.className = 's-card entering' + (opened ? ' opened' : '');
     el.innerHTML = `
       <div class="s-flip">
         <div class="flipper">
-          <div class="face cover"><span class="stamp">提出済</span></div>
+          <div class="face cover"><div class="cover-text"><b class="cover-name"></b><span>さんの回答</span></div></div>
           <div class="face content"><canvas class="flip-canvas"></canvas></div>
         </div>
       </div>
-      <div class="s-name"><span class="nm"></span><span class="s-hand">✋<b></b></span></div>`;
+      <div class="s-name"><span class="nm"></span></div>`;
+    el.querySelector('.cover-name').textContent = p.name;
+    el.querySelector('.nm').textContent = p.name;
+    el.addEventListener('animationend', (e) => {
+      if (e.animationName === 's-enter') el.classList.remove('entering');
+    });
     return {
       el,
       canvas: el.querySelector('canvas'),
+      coverName: el.querySelector('.cover-name'),
       name: el.querySelector('.nm'),
-      handNum: el.querySelector('.s-hand b'),
       rev: -1,
     };
   }
 
-  function updateCard(c, p, force) {
-    c.el.classList.toggle('submitted', !!p.submitted);
-    c.el.classList.toggle('revealed', !!p.revealed);
-    c.el.classList.toggle('off', !p.connected);
-    c.el.classList.toggle('raised', !!p.hand.raised);
-    c.name.textContent = p.name;
-    c.handNum.textContent = p.hand.raised ? String(p.hand.order) : '';
-    if (force || c.rev !== p.rev) {
-      c.rev = p.rev;
-      drawFlip(c.canvas, p.flip);
+  // 下げられたとき：フェードアウトして消す
+  function leave(c, animate) {
+    if (!animate) {
+      c.el.remove();
+      return;
     }
+    c.el.classList.remove('entering');
+    c.el.classList.add('leaving');
+    const done = () => c.el.remove();
+    c.el.addEventListener('animationend', done, { once: true });
+    setTimeout(done, 450); // animationend が来ない場合の保険
+  }
+
+  function renderStage(s, force) {
+    const st = s.stage;
+    const p = st ? (s.players || []).find((x) => x.id === st.playerId) : null;
+    const key = p ? st.playerId + ':' + st.since : null;
+
+    if (current && current.key !== key) {
+      // 入れ替え（別の人が呼ばれた）は即消し、下げられたときはアニメで消す
+      // 残っている退場アニメ中の要素も即消す
+      for (const old of main.querySelectorAll('.s-card.leaving')) old.remove();
+      leave(current, !key);
+      current = null;
+    }
+    if (!p) return;
+    if (!current) {
+      for (const old of main.querySelectorAll('.s-card')) old.remove();
+      const c = makeCard(p, st.opened);
+      c.key = key;
+      c.playerId = p.id;
+      main.appendChild(c.el);
+      current = c;
+      force = true;
+    }
+    current.el.classList.toggle('opened', !!st.opened);
+    current.coverName.textContent = p.name;
+    current.name.textContent = p.name;
+    if (force || current.rev !== p.rev) {
+      current.rev = p.rev;
+      drawFlip(current.canvas, p.flip);
+    }
+  }
+
+  // 中央カードの大きさ（4:3、名前の分を引いて収まる最大。高さは約58vhが目安）
+  function layout() {
+    const vw = window.innerWidth / 100;
+    const W = main.clientWidth;
+    const H = main.clientHeight;
+    const nameH = 5 * vw;
+    let cw = Math.min(W * 0.9, (H - nameH) * 4 / 3, window.innerHeight * 0.62 * 4 / 3);
+    cw = Math.max(120, Math.floor(cw));
+    const changed = main.style.getPropertyValue('--cw') !== cw + 'px';
+    main.style.setProperty('--cw', cw + 'px');
+    return changed;
+  }
+
+  // ---- 下部のステータス一列 ----
+  function makeItem() {
+    const el = document.createElement('div');
+    el.className = 's-pl';
+    el.innerHTML = `
+      <span class="s-pl-name"></span>
+      <span class="s-pl-st"></span>
+      <span class="s-hand">✋<b></b></span>`;
+    return {
+      el,
+      name: el.querySelector('.s-pl-name'),
+      st: el.querySelector('.s-pl-st'),
+      handNum: el.querySelector('.s-hand b'),
+    };
+  }
+
+  function renderStrip(s) {
+    const players = s.players || [];
+    const ids = new Set(players.map((p) => p.id));
+    for (const [id, it] of items) {
+      if (!ids.has(id)) {
+        it.el.remove();
+        items.delete(id);
+      }
+    }
+    players.forEach((p, i) => {
+      let it = items.get(p.id);
+      if (!it) {
+        it = makeItem();
+        items.set(p.id, it);
+      }
+      if (strip.children[i] !== it.el) strip.insertBefore(it.el, strip.children[i] || null);
+      const st = playerStatus(p, s.stage);
+      it.el.className = 's-pl st-' + st + (p.hand.raised ? ' raised' : '');
+      it.name.textContent = p.name;
+      it.st.textContent = STATUS_LABEL[st];
+      it.handNum.textContent = p.hand.raised ? String(p.hand.order) : '';
+    });
+    strip.style.setProperty('--n', Math.max(1, players.length));
   }
 
   // ---- 状態の反映 ----
@@ -114,72 +199,9 @@ export function startStageView({ code, chroma, mute }) {
       lastTopic = s.topic;
       fitTopic();
     }
-
-    const players = s.players || [];
-    const ids = new Set(players.map((p) => p.id));
-    for (const [id, c] of cards) {
-      if (!ids.has(id)) {
-        c.el.remove();
-        cards.delete(id);
-      }
-    }
-    players.forEach((p, i) => {
-      let c = cards.get(p.id);
-      if (!c) {
-        c = makeCard();
-        cards.set(p.id, c);
-      }
-      if (inner.children[i] !== c.el) inner.insertBefore(c.el, inner.children[i] || null);
-    });
-    $('s-waiting').hidden = players.length > 0;
-
+    renderStrip(s);
     const resized = layout();
-    players.forEach((p) => updateCard(cards.get(p.id), p, resized));
-
-    // スポットライト
-    const target = s.spotlightId ? players.find((p) => p.id === s.spotlightId) : null;
-    const box = $('s-spot');
-    if (target) {
-      let fresh = false;
-      if (!spot || spot.id !== target.id) {
-        box.innerHTML = '';
-        spot = { id: target.id, card: makeCard(true) };
-        box.appendChild(spot.card.el);
-        fresh = true;
-      }
-      box.hidden = false;
-      $('s-root').classList.add('spot-on');
-      updateCard(spot.card, target, fresh);
-    } else {
-      spot = null;
-      box.innerHTML = '';
-      box.hidden = true;
-      $('s-root').classList.remove('spot-on');
-    }
-  }
-
-  // グリッドの大きさ計算。カード幅が変わったら true
-  function layout() {
-    const n = snap ? (snap.players || []).length : 0;
-    if (!n) return false;
-    const cols = colsFor(n);
-    const rows = Math.ceil(n / cols);
-    const grid = $('s-grid');
-    const W = grid.clientWidth;
-    const H = grid.clientHeight;
-    const vw = window.innerWidth / 100;
-    const gx = 2 * vw;
-    const gy = 1.2 * vw;
-    const nameH = 3.6 * vw;
-    let cw = Math.min((W - gx * (cols - 1)) / cols, ((H - gy * (rows - 1)) / rows - nameH) * 4 / 3);
-    cw = Math.max(80, Math.floor(cw));
-    inner.style.setProperty('--cw', cw + 'px');
-    inner.style.setProperty('--gx', gx + 'px');
-    inner.style.setProperty('--gy', gy + 'px');
-    inner.style.width = Math.ceil(cw * cols + gx * (cols - 1) + 1) + 'px';
-    const changed = cw !== lastCw;
-    lastCw = cw;
-    return changed;
+    renderStage(s, resized);
   }
 
   // お題を枠に収まるよう縮小
@@ -199,16 +221,8 @@ export function startStageView({ code, chroma, mute }) {
 
   window.addEventListener('resize', () => {
     fitTopic();
-    if (!snap) return;
     layout();
-    for (const p of snap.players || []) {
-      const c = cards.get(p.id);
-      if (c) updateCard(c, p, true);
-    }
-    if (spot) {
-      const p = (snap.players || []).find((x) => x.id === spot.id);
-      if (p) updateCard(spot.card, p, true);
-    }
+    if (snap) renderStage(snap, true);
   });
 
   // ---- タイマー ----
@@ -226,4 +240,5 @@ export function startStageView({ code, chroma, mute }) {
   }, 200);
 
   fitTopic();
+  layout();
 }
