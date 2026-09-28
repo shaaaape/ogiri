@@ -12,9 +12,9 @@ const LS_TOPICS = 'ogiri.topics';
 const SS_ROOM = 'ogiri.hostRoom';
 const SS_STATE = 'ogiri.hostState';
 const SS_USED = 'ogiri.usedTopics';
-const LS_AUTO_DON = 'ogiri.autoDon';     // 旧設定（チェックボックス時代）。'0' なら「鳴らさない」として引き継ぐ
-const LS_OPEN_SE = 'ogiri.autoOpenSe';  // オープン時に鳴らすSEの id（'none' で鳴らさない）
+const LS_OPEN_SE = 'ogiri.autoOpenSe';  // オープン時に鳴らすSEの id（'none' で鳴らさない。デフォルトも'none'）
 const LS_TIMER_SE = 'ogiri.timerSe';    // タイマー0秒で鳴らすSEの id（'none' で鳴らさない）
+const LS_TOPIC_SE = 'ogiri.topicSe';    // 出題時に鳴らすSEの id（'none' で鳴らさない）
 const LS_HOST_NAME = 'ogiri.hostName'; // MC自身の名前（自分も回答するときの表示名）
 const SS_PENDING = 'ogiri.handoverPending'; // MC交代で引き継いだ直後の起動（player.js が書く）
 const SS_HANDED = 'ogiri.handedOver';       // MCを渡した相手の名前（トップ画面でお知らせ）
@@ -778,6 +778,10 @@ export function startHostView() {
     saveUsed();
     updateLeft();
     state.setTopic(t, $('h-auto-reset').checked);
+    if (t) {
+      const id = $('h-topic-se').value;
+      if (id && id !== 'none') fireSE(id);
+    }
   }
   function sendTopicInput() {
     const t = $('h-topic-input').value.trim();
@@ -906,11 +910,15 @@ export function startHostView() {
   function renderSeChoices() {
     if (!bundledReady) return;
     const bundled = se.listBundled();
-    // オープン時：デフォルトは同梱の先頭（無ければ合成ドン）。合成ドンは同梱が無いときだけ選べる
-    let openStored = lsGet(LS_OPEN_SE);
-    if (openStored == null && lsGet(LS_AUTO_DON) === '0') openStored = 'none';
+    // オープン時：デフォルトは「鳴らさない」
     fillSeSelect($('h-open-se'), {
-      stored: openStored,
+      stored: lsGet(LS_OPEN_SE),
+      def: 'none',
+      synth: bundled.length ? null : { id: 'don', name: '合成ドン' },
+    });
+    // 出題時：デフォルトは同梱の先頭（無ければ合成ドン）。合成ドンは同梱が無いときだけ選べる
+    fillSeSelect($('h-topic-se'), {
+      stored: lsGet(LS_TOPIC_SE),
       def: bundled.length ? bundled[0].id : 'don',
       synth: bundled.length ? null : { id: 'don', name: '合成ドン' },
     });
@@ -924,6 +932,7 @@ export function startHostView() {
   }
 
   $('h-open-se').addEventListener('change', (e) => lsSet(LS_OPEN_SE, e.target.value));
+  $('h-topic-se').addEventListener('change', (e) => lsSet(LS_TOPIC_SE, e.target.value));
   $('h-timer-se').addEventListener('change', (e) => lsSet(LS_TIMER_SE, e.target.value));
 
   se.loadBundled().then(() => {
