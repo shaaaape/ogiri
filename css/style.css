@@ -264,6 +264,8 @@ input[type=range] { accent-color: var(--accent); min-height: 32px; }
 .se-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-bottom: 8px; }
 .se-grid.custom { grid-template-columns: 1fr; }
 .se-grid.custom:empty { display: none; }
+.se-choice { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 14px; flex-wrap: wrap; }
+.se-choice select { flex: 1; min-width: 0; min-height: 36px; background: #11141a; border: 1px solid var(--line); border-radius: 10px; padding: 4px 8px; color: var(--text); }
 .se-btn { min-height: 52px; font-size: 15px; padding: 0 8px; }
 .se-custom { display: flex; gap: 4px; }
 .se-custom .se-btn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 52px; background: #2c2640; }
@@ -827,6 +829,7 @@ body.chroma .s-name .nm { background: #000b; padding: 0 .4em; border-radius: .3e
 }
 .app-dialog::backdrop { background: #0b0d11cc; }
 .app-dialog-msg { font-size: 15px; line-height: 1.6; margin-bottom: 18px; }
+.app-dialog-input { width: 100%; margin-bottom: 18px; }
 .app-dialog-btns { display: flex; justify-content: flex-end; gap: 10px; }
 .app-dialog-btns .btn { min-height: 44px; min-width: 96px; }
 

@@ -1,11 +1,12 @@
-// ページ内ダイアログ（window.confirm / window.alert の置き換え）
+// ページ内ダイアログ（window.confirm / window.alert / window.prompt の置き換え）
 // デスクトップアプリ内蔵ブラウザやアプリ内ブラウザ（LINE/Discordなど）では
-// window.confirm / window.alert が使えず、常に false（何もしない）扱いになることがあるため、
+// window.confirm / window.alert / window.prompt が使えず、常に false・null（何もしない）扱いになることがあるため、
 // <dialog> 要素で同じことをする。<dialog>.showModal が無い古いブラウザ向けには
-// window.confirm / window.alert にフォールバックする。
+// window.confirm / window.alert / window.prompt にフォールバックする。
 //
 //   if (!(await confirmDialog('本当に消しますか？'))) return;
 //   await alertDialog('保存できませんでした。');
+//   const name = await promptDialog('名前を入力', { defaultValue: myName });
 
 let dialogEl = null;
 
@@ -96,4 +97,68 @@ export function alertDialog(message, { okText = 'OK' } = {}) {
     return Promise.resolve();
   }
   return openDialog(message, { okText, cancelText: '', danger: false, showCancel: false }).then(() => {});
+}
+
+let promptDialogEl = null;
+
+function ensurePromptDialog() {
+  if (promptDialogEl) return promptDialogEl;
+  const dlg = document.createElement('dialog');
+  dlg.id = 'app-prompt-dialog';
+  dlg.className = 'app-dialog';
+  dlg.innerHTML = `
+    <div class="app-dialog-msg"></div>
+    <input type="text" class="app-dialog-input">
+    <div class="app-dialog-btns">
+      <button type="button" class="btn app-dialog-cancel"></button>
+      <button type="button" class="btn primary app-dialog-ok"></button>
+    </div>`;
+  document.body.appendChild(dlg);
+  promptDialogEl = dlg;
+  return dlg;
+}
+
+export function promptDialog(message, { defaultValue = '', okText = 'OK', cancelText = 'キャンセル', placeholder = '', maxLength = 40 } = {}) {
+  if (!supportsDialog()) return Promise.resolve(window.prompt(message, defaultValue));
+  return new Promise((resolve) => {
+    const dlg = ensurePromptDialog();
+    const msgEl = dlg.querySelector('.app-dialog-msg');
+    const inputEl = dlg.querySelector('.app-dialog-input');
+    const okBtn = dlg.querySelector('.app-dialog-ok');
+    const cancelBtn = dlg.querySelector('.app-dialog-cancel');
+    setMessage(msgEl, message);
+    inputEl.value = defaultValue == null ? '' : String(defaultValue);
+    inputEl.placeholder = placeholder;
+    if (maxLength) inputEl.maxLength = maxLength; else inputEl.removeAttribute('maxlength');
+    okBtn.textContent = okText;
+    cancelBtn.textContent = cancelText;
+
+    let done = false;
+    function finish(result) {
+      if (done) return;
+      done = true;
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      inputEl.removeEventListener('keydown', onKeydown);
+      dlg.removeEventListener('cancel', onCancelEvent);
+      dlg.removeEventListener('click', onBackdrop);
+      resolve(result);
+      if (dlg.open) dlg.close();
+    }
+    function onOk() { finish(inputEl.value); }
+    function onCancel() { finish(null); }
+    function onCancelEvent(e) { e.preventDefault(); finish(null); } // Escapeキー
+    function onBackdrop(e) { if (isBackdropClick(dlg, e)) finish(null); }
+    function onKeydown(e) { if (e.key === 'Enter') { e.preventDefault(); finish(inputEl.value); } }
+
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    inputEl.addEventListener('keydown', onKeydown);
+    dlg.addEventListener('cancel', onCancelEvent);
+    dlg.addEventListener('click', onBackdrop);
+
+    dlg.showModal();
+    inputEl.focus();
+    inputEl.select();
+  });
 }

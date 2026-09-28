@@ -2,7 +2,7 @@
 import { Client, normalizeCode } from '../net.js';
 import { createFlipEditor } from '../flipEditor.js';
 import { sanitizeName, flipHasContent } from '../state.js';
-import { alertDialog } from '../dialog.js';
+import { alertDialog, promptDialog } from '../dialog.js';
 import * as se from '../se.js';
 
 const $ = (id) => document.getElementById(id);
@@ -30,6 +30,7 @@ function toArrayBuffer(d) {
 }
 
 export function startPlayerView({ code, name, clientId, onExit }) {
+  se.loadBundled(); // 同梱SE（se/list.json）を読み込んでおく
   document.body.classList.add('mode-player');
   let myName = sanitizeName(name);
 
@@ -342,8 +343,8 @@ export function startPlayerView({ code, name, clientId, onExit }) {
   });
 
   // ---- 名前・ミュート ----
-  $('p-name').addEventListener('click', () => {
-    const n = window.prompt('新しい名前（16文字まで）', myName);
+  $('p-name').addEventListener('click', async () => {
+    const n = await promptDialog('新しい名前（16文字まで）', { defaultValue: myName, maxLength: 16 });
     if (n == null || !n.trim()) return;
     myName = sanitizeName(n);
     try { localStorage.setItem(LS_NAME, myName); } catch (e) { /* 無視 */ }

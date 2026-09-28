@@ -3,7 +3,7 @@ import { startHost, genCode } from '../net.js';
 import { HostState, playerStatus, STATUS_LABEL, HOST_ID, sanitizeName } from '../state.js';
 import { drawFlip } from '../flip.js';
 import { createFlipEditor } from '../flipEditor.js';
-import { confirmDialog, alertDialog } from '../dialog.js';
+import { confirmDialog, alertDialog, promptDialog } from '../dialog.js';
 import * as se from '../se.js';
 
 const $ = (id) => document.getElementById(id);
@@ -12,7 +12,9 @@ const LS_TOPICS = 'ogiri.topics';
 const SS_ROOM = 'ogiri.hostRoom';
 const SS_STATE = 'ogiri.hostState';
 const SS_USED = 'ogiri.usedTopics';
-const LS_AUTO_DON = 'ogiri.autoDon';
+const LS_AUTO_DON = 'ogiri.autoDon';     // 旧設定（チェックボックス時代）。'0' なら「鳴らさない」として引き継ぐ
+const LS_OPEN_SE = 'ogiri.autoOpenSe';  // オープン時に鳴らすSEの id（'none' で鳴らさない）
+const LS_TIMER_SE = 'ogiri.timerSe';    // タイマー0秒で鳴らすSEの id（'none' で鳴らさない）
 const LS_HOST_NAME = 'ogiri.hostName'; // MC自身の名前（自分も回答するときの表示名）
 const SS_PENDING = 'ogiri.handoverPending'; // MC交代で引き継いだ直後の起動（player.js が書く）
 const SS_HANDED = 'ogiri.handedOver';       // MCを渡した相手の名前（トップ画面でお知らせ）
@@ -59,7 +61,7 @@ async function copyText(text) {
   try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
   ta.remove();
   if (ok) toast('コピーしました');
-  else window.prompt('このURLをコピーしてください', text);
+  else await promptDialog('このURLをコピーしてください', { defaultValue: text, maxLength: 0 });
 }
 
 export function startHostView() {
@@ -325,11 +327,12 @@ export function startHostView() {
   function onStateChange(snap) {
     if (leaving) return;
     broadcast({ t: 'state', ...snap });
-    // オープンされた瞬間（false→true）にドン
+    // オープンされた瞬間（false→true）に「オープン時に鳴らす」で選んだSE
     const st = snap.stage;
     if (st && st.opened && stageKey(st) !== lastOpenKey) {
       lastOpenKey = stageKey(st);
-      if ($('h-auto-don').checked) fireSE('don');
+      const id = $('h-open-se').value;
+      if (id && id !== 'none') fireSE(id);
     }
     render(snap);
     scheduleSave();
@@ -448,8 +451,8 @@ export function startHostView() {
   // MCの名前（ヘッダ。クリックで変更）
   const nameBtn = $('h-name');
   nameBtn.textContent = state.hostEntry.name;
-  nameBtn.addEventListener('click', () => {
-    const n = window.prompt('MCの名前（16文字まで）', state.hostEntry.name);
+  nameBtn.addEventListener('click', async () => {
+    const n = await promptDialog('MCの名前（16文字まで）', { defaultValue: state.hostEntry.name, maxLength: 16 });
     if (n == null || !n.trim()) return;
     const name = sanitizeName(n);
     try { localStorage.setItem(LS_HOST_NAME, name); } catch (e) { /* 無視 */ }
@@ -829,7 +832,8 @@ export function startHostView() {
     el.classList.toggle('danger', left <= 10);
     if (left <= 0 && firedFor !== t.endsAt) {
       firedFor = t.endsAt;
-      if ($('h-timer-jan').checked) fireSE('jan');
+      const id = $('h-timer-se').value;
+      if (id && id !== 'none') fireSE(id);
     }
   }, 200);
 
@@ -839,25 +843,94 @@ export function startHostView() {
     broadcast({ t: 'se', id });
   }
 
-  // 「オープン時に自動でドン」の設定（localStorage）
-  const autoDon = $('h-auto-don');
-  try {
-    const v = localStorage.getItem(LS_AUTO_DON);
-    if (v != null) autoDon.checked = v === '1';
-  } catch (e) { /* 無視 */ }
-  autoDon.addEventListener('change', () => {
-    try { localStorage.setItem(LS_AUTO_DON, autoDon.checked ? '1' : '0'); } catch (e) { /* 無視 */ }
-  });
+  // 同梱SE（se/list.json）の読み込みが終わるまでは、パッドと「鳴らす」の選択肢は空
+  let bundledReady = false;
 
-  const builtin = $('h-se-builtin');
-  for (const b of se.BUILTIN_SE) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn se-btn';
-    btn.textContent = b.name;
-    btn.addEventListener('click', () => fireSE(b.id));
-    builtin.appendChild(btn);
+  // パッド上段：同梱SEがあればそれを並べ、無ければ合成SEを並べる（フォールバック）
+  function renderPadTop() {
+    const box = $('h-se-builtin');
+    box.innerHTML = '';
+    if (!bundledReady) return;
+    const bundled = se.listBundled();
+    const list = bundled.length
+      ? bundled.map((b) => ({ id: b.id, name: b.name, title: `同梱: ${b.file}` }))
+      : se.BUILTIN_SE.map((b) => ({ id: b.id, name: b.name, title: '合成SE' }));
+    for (const b of list) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn se-btn';
+      btn.textContent = b.name;
+      btn.title = b.title;
+      btn.addEventListener('click', () => fireSE(b.id));
+      box.appendChild(btn);
+    }
   }
+
+  function lsGet(k) {
+    try { return localStorage.getItem(k); } catch (e) { return null; }
+  }
+  function lsSet(k, v) {
+    try { localStorage.setItem(k, v); } catch (e) { /* 無視 */ }
+  }
+
+  // 「オープン時に鳴らす」「0秒で鳴らす」のドロップダウンを作り直す。
+  // 選択は localStorage に保存した id。存在しなくなっていたらデフォルトを表示する（保存値は変更時のみ書く）
+  function fillSeSelect(sel, { stored, def, synth }) {
+    sel.innerHTML = '';
+    const add = (parent, id, label) => {
+      const o = document.createElement('option');
+      o.value = id;
+      o.textContent = label;
+      parent.appendChild(o);
+    };
+    add(sel, 'none', '鳴らさない');
+    const bundled = se.listBundled();
+    if (bundled.length) {
+      const g = document.createElement('optgroup');
+      g.label = '同梱';
+      for (const b of bundled) add(g, b.id, b.name);
+      sel.appendChild(g);
+    }
+    const customs = se.listCustomMeta().filter((m) => se.hasCustom(m.id));
+    if (customs.length) {
+      const g = document.createElement('optgroup');
+      g.label = 'カスタム';
+      for (const m of customs) add(g, m.id, m.name);
+      sel.appendChild(g);
+    }
+    if (synth) add(sel, synth.id, synth.name);
+    const ids = [...sel.options].map((o) => o.value);
+    sel.value = stored != null && ids.includes(stored) ? stored : def;
+  }
+
+  function renderSeChoices() {
+    if (!bundledReady) return;
+    const bundled = se.listBundled();
+    // オープン時：デフォルトは同梱の先頭（無ければ合成ドン）。合成ドンは同梱が無いときだけ選べる
+    let openStored = lsGet(LS_OPEN_SE);
+    if (openStored == null && lsGet(LS_AUTO_DON) === '0') openStored = 'none';
+    fillSeSelect($('h-open-se'), {
+      stored: openStored,
+      def: bundled.length ? bundled[0].id : 'don',
+      synth: bundled.length ? null : { id: 'don', name: '合成ドン' },
+    });
+    // 0秒：デフォルトは合成ジャン（同梱に jan があればそれ）
+    const bJan = se.BUNDLED_PREFIX + 'jan';
+    fillSeSelect($('h-timer-se'), {
+      stored: lsGet(LS_TIMER_SE),
+      def: bundled.some((b) => b.id === bJan) ? bJan : 'jan',
+      synth: { id: 'jan', name: '合成ジャン' },
+    });
+  }
+
+  $('h-open-se').addEventListener('change', (e) => lsSet(LS_OPEN_SE, e.target.value));
+  $('h-timer-se').addEventListener('change', (e) => lsSet(LS_TIMER_SE, e.target.value));
+
+  se.loadBundled().then(() => {
+    bundledReady = true;
+    renderPadTop();
+    renderSeChoices();
+  });
 
   function sendCustomsTo(conn, role) {
     for (const m of se.listCustomMeta()) {
@@ -917,8 +990,8 @@ export function startHostView() {
       ren.className = 'mini';
       ren.title = '名前を変更';
       ren.textContent = '✎';
-      ren.addEventListener('click', () => {
-        const n = window.prompt('ボタンの名前', m.name);
+      ren.addEventListener('click', async () => {
+        const n = await promptDialog('ボタンの名前', { defaultValue: m.name });
         if (n && n.trim()) {
           se.renameCustom(m.id, n);
           renderCustom();
@@ -933,6 +1006,7 @@ export function startHostView() {
       wrap.append(play, ren, del);
       box.appendChild(wrap);
     }
+    renderSeChoices(); // カスタムSEの増減・改名をドロップダウンにも反映
   }
 
   se.loadAllCustom().then(() => {

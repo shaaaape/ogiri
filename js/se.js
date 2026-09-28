@@ -1,4 +1,5 @@
-// 効果音：内蔵SE（Web Audioで合成）＋カスタムSE（IndexedDB保存）
+// 効果音：同梱SE（se/list.json の音源ファイル）＋カスタムSE（IndexedDB保存）＋合成SE（Web Audio）
+// 再生時は 同梱 → カスタム → 合成 の順で id を探す
 
 export const BUILTIN_SE = [
   { id: 'don', name: 'ドン' },
@@ -20,6 +21,13 @@ let master = null;
 let noiseBuf = null;
 let volume = loadVolume();
 let muted = false;
+
+// 同梱SE：id は list.json の id に接頭辞 'b:' を付けたもの（カスタムSEの id と衝突させない）
+export const BUNDLED_PREFIX = 'b:';
+const BUNDLED_DIR = 'se/';
+let bundledList = [];            // [{ id, name, file }]
+const bundledBuf = new Map();    // id -> AudioBuffer
+let bundledPromise = null;
 
 const rawCustom = new Map(); // id -> ArrayBuffer
 const decoded = new Map();   // id -> AudioBuffer
@@ -85,6 +93,20 @@ export function playSE(id) {
   if (muted) return;
   const c = ensureAudio();
   if (!c) return;
+  // 同梱SE
+  if (bundledBuf.has(id)) {
+    playBuffer(bundledBuf.get(id));
+    return;
+  }
+  // 同梱SEの読み込み中に届いたら、読み込み後に鳴らす
+  if (typeof id === 'string' && id.startsWith(BUNDLED_PREFIX)) {
+    if (bundledPromise) {
+      bundledPromise.then(() => {
+        if (bundledBuf.has(id) && !muted) playBuffer(bundledBuf.get(id));
+      });
+    }
+    return;
+  }
   const t = c.currentTime + 0.03;
   try {
     switch (id) {
@@ -100,6 +122,93 @@ export function playSE(id) {
   } catch (e) {
     console.warn('SE再生に失敗', e);
   }
+}
+
+function playBuffer(b) {
+  if (!b || muted || !ctx) return;
+  try {
+    const s = ctx.createBufferSource();
+    s.buffer = b;
+    s.connect(master);
+    s.start();
+  } catch (e) {
+    console.warn('SE再生に失敗', e);
+  }
+}
+
+// ---- 同梱SE ----
+// 音声データを AudioBuffer にする。AudioContext がまだ無い（ユーザー操作前）ときは
+// OfflineAudioContext でデコードする（AudioBuffer はどの AudioContext でも再生できる）
+function decodeBuffer(buf) {
+  let c = ctx;
+  if (!c) {
+    const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OAC) c = ensureAudio();
+    else {
+      try { c = new OAC(1, 1, 48000); } catch (e) { c = ensureAudio(); }
+    }
+  }
+  if (!c) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const r = c.decodeAudioData(buf, (b) => resolve(b), () => resolve(null));
+      if (r && typeof r.catch === 'function') r.catch(() => resolve(null));
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+// se/list.json を読み、各ファイルを取得・デコードして保持する。
+// 読み込めたもののメタ一覧 [{ id, name, file }] を返す。list.json が無い・壊れているときは []（エラーにしない）
+export function loadBundled() {
+  if (bundledPromise) return bundledPromise;
+  bundledPromise = (async () => {
+    let list;
+    try {
+      const res = await fetch(BUNDLED_DIR + 'list.json', { cache: 'no-cache' });
+      if (!res.ok) return [];
+      list = await res.json();
+    } catch (e) {
+      return [];
+    }
+    if (!Array.isArray(list)) return [];
+    const seen = new Set();
+    const items = [];
+    for (const x of list) {
+      if (!x || typeof x.id !== 'string' || typeof x.file !== 'string') continue;
+      if (!/^[A-Za-z0-9_-]{1,32}$/.test(x.id) || seen.has(x.id)) continue;
+      if (!x.file || x.file.includes('..') || /^[a-z]+:|^\//i.test(x.file)) continue;
+      seen.add(x.id);
+      items.push({
+        id: BUNDLED_PREFIX + x.id,
+        name: String(x.name || x.id).trim().slice(0, 20) || x.id,
+        file: x.file,
+      });
+    }
+    // 並列に取得・デコード（失敗したものは飛ばす）
+    const results = await Promise.all(items.map(async (m) => {
+      try {
+        const url = BUNDLED_DIR + m.file.split('/').map(encodeURIComponent).join('/');
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        const b = await decodeBuffer(await res.arrayBuffer());
+        if (!b) return null;
+        bundledBuf.set(m.id, b);
+        return m;
+      } catch (e) {
+        return null;
+      }
+    }));
+    bundledList = results.filter(Boolean);
+    return bundledList.slice();
+  })();
+  return bundledPromise;
+}
+
+// 読み込み済みの同梱SEのメタ一覧（list.json の順）
+export function listBundled() {
+  return bundledList.map((m) => ({ ...m }));
 }
 
 // ---- 合成の部品 ----

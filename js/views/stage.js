@@ -14,6 +14,7 @@ function toArrayBuffer(d) {
 }
 
 export function startStageView({ code, chroma, mute }) {
+  se.loadBundled(); // 同梱SE（se/list.json）を読み込んでおく
   document.body.classList.add('mode-stage');
   if (chroma) document.body.classList.add('chroma');
   se.setMuted(!!mute);

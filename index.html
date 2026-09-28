@@ -153,7 +153,7 @@
             <button id="h-timer-start" class="btn primary" type="button">スタート</button>
             <button id="h-timer-stop" class="btn" type="button">停止</button>
           </div>
-          <label class="check"><input type="checkbox" id="h-timer-jan" checked> 0秒で「ジャン」を鳴らす</label>
+          <label class="se-choice">0秒で鳴らす: <select id="h-timer-se"></select></label>
         </section>
 
         <section class="panel">
@@ -165,7 +165,7 @@
           <h2>SEパッド</h2>
           <div id="h-se-builtin" class="se-grid"></div>
           <div id="h-se-custom" class="se-grid custom"></div>
-          <label class="check"><input type="checkbox" id="h-auto-don" checked> オープン時に自動でドンを鳴らす</label>
+          <label class="se-choice">オープン時に鳴らす: <select id="h-open-se"></select></label>
           <label class="btn file-btn">＋ mp3を追加<input type="file" id="h-se-file" accept="audio/*,.mp3,.m4a,.wav,.ogg" multiple hidden></label>
           <p class="muted small">追加したボタンは長押し（または×）で削除、✎で名前変更。1.5MB以下なら参加者の画面でも鳴ります。</p>
           <div class="row">
