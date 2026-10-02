@@ -137,7 +137,7 @@ export function startStageView({ code, chroma, mute }) {
   });
 
   // ---- 中央のフリップ ----
-  // 裏面は高座の座布団。側面（厚み）・四隅の房・中央のとじ糸はインラインSVG
+  // 裏面は高座の座布団。側面（厚み）・四隅の房はインラインSVG
   const ZABUTON_SIDE = `<svg class="zb-side" viewBox="0 0 400 322" preserveAspectRatio="none" aria-hidden="true">
     <defs><linearGradient id="zb-side-g" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#3a1f55"/><stop offset=".9" stop-color="#2f1847"/><stop offset="1" stop-color="#1f0f31"/>
@@ -163,14 +163,6 @@ export function startStageView({ code, chroma, mute }) {
     <circle cx="30" cy="30" r="3.4" fill="#5e3412"/><circle cx="29.2" cy="29.2" r="1.3" fill="#a8763a"/>
   </svg>`;
   const ZABUTON_FUSA = ['tl', 'tr', 'bl', 'br'].map((k) => `<i class="zb-fusa ${k}">${FUSA_SVG}</i>`).join('');
-  const ZABUTON_TOJI = `<svg class="zb-toji" viewBox="0 0 40 40" aria-hidden="true">
-    <g stroke-linecap="round" fill="none">
-      <path d="M20 9V31M9 20H31M12.5 12.5L27.5 27.5M27.5 12.5L12.5 27.5" stroke="#2a1440" stroke-width="3.4" opacity=".55"/>
-      <path d="M20 9V31M9 20H31" stroke="#efe6cf" stroke-width="2.2"/>
-      <path d="M12.5 12.5L27.5 27.5M27.5 12.5L12.5 27.5" stroke="#efe6cf" stroke-width="1.8"/>
-    </g>
-    <circle cx="20" cy="20" r="3.2" fill="#d9ccab"/><circle cx="20" cy="20" r="1.4" fill="#8a7650"/>
-  </svg>`;
 
   function makeCard(p, opened) {
     const el = document.createElement('div');
@@ -178,7 +170,7 @@ export function startStageView({ code, chroma, mute }) {
     el.innerHTML = `
       <div class="s-flip">
         <div class="flipper">
-          <div class="face cover">${ZABUTON_SIDE}<div class="zb-top"></div>${ZABUTON_FUSA}<div class="cover-text">${ZABUTON_TOJI}<b class="cover-name"></b><span class="cover-sub">さんの回答</span><small class="mc-tag" hidden>席亭</small></div></div>
+          <div class="face cover">${ZABUTON_SIDE}<div class="zb-top"></div>${ZABUTON_FUSA}<div class="cover-text"><b class="cover-name"></b><span class="cover-sub">さんの回答</span><small class="mc-tag" hidden>席亭</small></div></div>
           <div class="face content"><canvas class="flip-canvas"></canvas></div>
         </div>
       </div>

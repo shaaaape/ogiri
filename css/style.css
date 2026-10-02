@@ -983,7 +983,7 @@ body.chroma .s-pl.st-off { filter: brightness(.6); }
 }
 .face.content::after { border: .13vw solid #1a1714; }
 .face.content .flip-canvas { position: relative; height: 100%; }
-/* 裏：高座の座布団（紫の布地・ふっくらした張り・側面の厚み・四隅の房・中央のとじ糸）
+/* 裏：高座の座布団（紫の布地・ふっくらした張り・側面の厚み・四隅の房）
    房と側面はカードの外へはみ出すので overflow は切らない。
    いずれも .face.cover の子なので、めくると一緒に裏返って隠れる */
 .face.cover {
@@ -1046,14 +1046,6 @@ body.chroma .s-pl.st-off { filter: brightness(.6); }
   gap: calc(var(--cw) * .012);
   width: 100%;
   margin-top: calc(var(--cw) * -.03);
-}
-/* 中央のとじ糸（糸に引かれて布が少しくぼむ） */
-.zb-toji {
-  width: calc(var(--cw) * .085);
-  height: calc(var(--cw) * .085);
-  margin-bottom: calc(var(--cw) * .012);
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(25, 8, 40, .4) 0%, rgba(25, 8, 40, .15) 45%, rgba(25, 8, 40, 0) 70%);
 }
 .cover-name {
   max-width: 84%;
