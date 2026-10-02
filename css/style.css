@@ -1,18 +1,56 @@
-/* ===== オンライン大喜利 ===== */
+/* ===== オンライン大喜利 =====
+   デザイン：寄席（定式幕・白木・黒漆・朱・紫の座布団）
+   トップ・MC・参加者画面は明るい白木の地に墨色の文字。ステージ画面は下の「ステージ画面」節で別に定義 */
 :root {
-  --bg: #14161b;
-  --panel: #1d2129;
-  --panel2: #272c36;
-  --line: #363c49;
-  --text: #eef1f6;
-  --muted: #9aa3b2;
-  --accent: #ffb400;
-  --accent-ink: #1d1600;
-  --red: #ff5b5b;
-  --green: #36c98a;
-  --blue: #4ea3ff;
-  --radius: 12px;
-  --font: "Hiragino Maru Gothic ProN", "Hiragino Sans", "BIZ UDPGothic", "Meiryo", "Yu Gothic", system-ui, sans-serif;
+  /* 色 */
+  --sumi: #1a1511;        /* 墨：本文 */
+  --sumi-2: #55463a;      /* 薄墨：補足 */
+  --cha: #5a3b22;         /* 濃茶：枠 */
+  --cha-2: #8a6a4a;       /* 茶：細い枠・控えめな札 */
+  --kiji: #efe3cb;        /* 白木：画面の地 */
+  --ita: #faf5ea;         /* 白木の板：パネル */
+  --fuda: #f6ecd8;        /* 木札：ボタンの地 */
+  --fuda-2: #eadbbd;
+  --fuda-edge: #c3a77c;   /* 木札の厚み */
+  --kinari: #f7efdc;      /* 生成り：濃い地の上の文字 */
+  --shu: #b3341f;         /* 朱 */
+  --shu-deep: #7a1f10;
+  --shu-hi: #e0553a;      /* 黒漆の上の朱（大きな数字） */
+  --urushi: #171412;      /* 黒漆 */
+  --kin: #c9a24a;         /* 金 */
+  --maku-k: #1c1a19;      /* 定式幕：黒 */
+  --moegi: #2f7a4f;       /* 萌葱 */
+  --kaki: #c75a2c;        /* 柿 */
+  --murasaki: #4a2a6b;    /* 座布団 */
+  --murasaki-deep: #2f1847;
+  --ai: #274a78;          /* 藍 */
+  /* 状態の札（生成りの文字で 4.5:1 以上になる濃さ） */
+  --st-ok: #2a6b45;
+  --st-warn: #a4441c;
+  --st-ng: #2a221c;
+
+  --radius: 3px;
+  --fude: "Reggae One", "Shippori Mincho B1", "Yu Mincho", serif;
+  --mincho: "Shippori Mincho B1", "Yu Mincho", "Hiragino Mincho ProN", serif;
+  --gothic: "Zen Kaku Gothic New", "Hiragino Sans", "BIZ UDPGothic", "Meiryo", "Yu Gothic", system-ui, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, Menlo, "Courier New", monospace;
+  --font: var(--gothic);
+
+  /* 定式幕（縞＋ひだの陰影） */
+  --maku:
+    linear-gradient(180deg, rgba(0, 0, 0, .35), rgba(0, 0, 0, 0) 28%, rgba(0, 0, 0, 0) 78%, rgba(0, 0, 0, .3)),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, .2) 0, rgba(255, 255, 255, .06) 12px, rgba(0, 0, 0, 0) 26px, rgba(0, 0, 0, .16) 44px),
+    repeating-linear-gradient(90deg, var(--maku-k) 0 44px, var(--moegi) 44px 88px, var(--kaki) 88px 132px);
+  /* 白木の板（ごく薄い木目と板の継ぎ目） */
+  --mokume:
+    repeating-linear-gradient(90deg, rgba(110, 72, 36, .07) 0 1px, rgba(0, 0, 0, 0) 1px 180px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .14) 0 180px, rgba(0, 0, 0, 0) 180px 360px),
+    repeating-linear-gradient(90deg, rgba(140, 95, 50, .035) 0 2px, rgba(0, 0, 0, 0) 2px 9px, rgba(140, 95, 50, .025) 9px 10px, rgba(0, 0, 0, 0) 10px 31px);
+  /* 木札の横木目 */
+  --fuda-grain: repeating-linear-gradient(0deg, rgba(120, 80, 40, .045) 0 1px, rgba(0, 0, 0, 0) 1px 5px);
+  --fuda-bg: var(--fuda-grain), linear-gradient(180deg, #faf2e2, var(--fuda-2));
+  /* 黒漆の看板（金の二重線） */
+  --kanban-shadow: inset 0 0 0 3px var(--urushi), inset 0 0 0 4px rgba(201, 162, 74, .7), 0 3px 8px rgba(40, 20, 5, .3);
 }
 
 * { box-sizing: border-box; }
@@ -20,8 +58,9 @@
 
 html, body { margin: 0; padding: 0; }
 body {
-  background: var(--bg);
-  color: var(--text);
+  background-color: var(--kiji);
+  background-image: var(--mokume);
+  color: var(--sumi);
   font-family: var(--font);
   font-size: 16px;
   line-height: 1.5;
@@ -34,25 +73,30 @@ h2 { font-size: 17px; margin-bottom: 10px; letter-spacing: .03em; }
 
 input, textarea, select, button { font: inherit; color: inherit; }
 input:not([type=checkbox]):not([type=range]), textarea {
-  background: #11141a;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  background: #fffdf8;
+  border: 1px solid var(--cha-2);
+  border-radius: var(--radius);
   padding: 10px 12px;
   min-height: 44px;
-  color: var(--text);
+  color: var(--sumi);
   outline: none;
+  box-shadow: inset 0 1px 2px rgba(60, 35, 15, .12);
 }
-input:focus, textarea:focus { border-color: var(--accent); }
+input:focus, textarea:focus, select:focus { border-color: var(--shu); box-shadow: 0 0 0 3px rgba(179, 52, 31, .18); outline: none; }
+input::placeholder, textarea::placeholder { color: #8b7b6b; }
 textarea { resize: vertical; width: 100%; line-height: 1.5; }
-input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
-input[type=range] { accent-color: var(--accent); min-height: 32px; }
+input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--shu); }
+input[type=range] { accent-color: var(--shu); min-height: 32px; }
+button:focus-visible { outline: 2px solid var(--shu); outline-offset: 2px; }
 
-.muted { color: var(--muted); }
+.muted { color: var(--sumi-2); }
 .small { font-size: 13px; }
 .grow { flex: 1 1 auto; min-width: 0; }
 .spacer { flex: 1; }
+.ico { display: block; flex: 0 0 auto; }
 
-/* ---- ボタン ---- */
+/* ---- ボタン ----
+   通常：木札 ／ primary：朱塗り（最重要） ／ danger：墨（危険） ／ subtle：縁だけの札（控えめ） ／ on：黒漆に金縁（選択中） */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -60,26 +104,54 @@ input[type=range] { accent-color: var(--accent); min-height: 32px; }
   gap: 6px;
   min-height: 44px;
   padding: 0 16px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--panel2);
-  color: var(--text);
+  border-radius: var(--radius);
+  border: 1px solid var(--cha);
+  background-color: var(--fuda);
+  background-image: var(--fuda-bg);
+  color: var(--sumi);
+  font-family: var(--gothic);
   font-weight: 700;
+  letter-spacing: .04em;
+  line-height: 1.25;
+  box-shadow: 0 2px 0 var(--fuda-edge), 0 3px 5px rgba(60, 35, 15, .16);
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
-  transition: background .15s, transform .05s, border-color .15s;
+  transition: filter .15s, transform .05s, box-shadow .05s;
 }
-.btn:hover { background: #313745; }
-.btn:active { transform: translateY(1px); }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.btn.primary:hover { background: #ffc233; }
-.btn.danger { border-color: #7a3434; color: #ffb3b3; }
-.btn.danger:hover { background: #3a2226; }
-.btn.ghost { background: transparent; }
-.btn.on { border-color: var(--accent); background: #3b3320; }
+.btn:hover { filter: brightness(1.04); }
+.btn:active { transform: translateY(2px); box-shadow: 0 0 0 var(--fuda-edge), 0 1px 2px rgba(60, 35, 15, .2); }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: none; }
+.btn.primary {
+  background-color: var(--shu);
+  background-image: linear-gradient(180deg, #c03d25, #a92f1b);
+  border-color: var(--shu-deep);
+  color: var(--kinari);
+  box-shadow: 0 3px 0 var(--shu-deep), 0 4px 6px rgba(90, 20, 8, .22);
+}
+.btn.primary:active { box-shadow: 0 1px 0 var(--shu-deep), 0 1px 2px rgba(90, 20, 8, .2); }
+.btn.danger {
+  background-color: #2a221c;
+  background-image: none;
+  border-color: #0d0b09;
+  color: var(--kinari);
+  box-shadow: 0 2px 0 #000, 0 3px 5px rgba(20, 10, 5, .2);
+}
+.btn.subtle {
+  background: transparent;
+  border: 1px solid var(--cha-2);
+  color: var(--sumi-2);
+  font-weight: 600;
+  box-shadow: none;
+}
+.btn.subtle:hover:not(:disabled) { background: rgba(255, 250, 240, .7); color: var(--sumi); filter: none; }
+.btn.on {
+  background: var(--urushi);
+  border-color: var(--kin);
+  color: var(--kinari);
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 74, .45), 0 2px 0 #000;
+}
 .btn.big { min-height: 56px; font-size: 18px; padding: 0 24px; }
 .btn.small { min-height: 38px; padding: 0 10px; font-size: 13px; }
 .btn.icon { min-width: 44px; padding: 0 10px; }
@@ -88,27 +160,33 @@ input[type=range] { accent-color: var(--accent); min-height: 32px; }
 .row.between { justify-content: space-between; }
 .check { display: flex; align-items: center; gap: 8px; margin: 8px 0; cursor: pointer; font-size: 14px; min-height: 32px; }
 
+/* 接続状態の小さな札（接続中：萌葱／待ち・再接続：柿／切断：墨） */
 .net-badge {
   display: inline-block;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: 2px;
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
+  color: var(--kinari);
+  border: 1px solid rgba(0, 0, 0, .35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15), 0 1px 2px rgba(40, 20, 5, .25);
 }
-.net-badge.ok { background: #173d2c; color: #7ff0b9; }
-.net-badge.warn { background: #43381a; color: #ffd574; }
-.net-badge.ng { background: #4a2020; color: #ffaaaa; }
+.net-badge.ok { background: var(--st-ok); }
+.net-badge.warn { background: var(--st-warn); }
+.net-badge.ng { background: var(--st-ng); }
 
 .toast {
   position: fixed;
   left: 50%;
   bottom: 24px;
   transform: translateX(-50%);
-  background: #000c;
-  color: #fff;
+  background: var(--urushi);
+  color: var(--kinari);
+  border: 1px solid var(--kin);
   padding: 10px 18px;
-  border-radius: 999px;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(20, 10, 5, .35);
   z-index: 100;
   font-weight: 700;
   pointer-events: none;
@@ -116,171 +194,500 @@ input[type=range] { accent-color: var(--accent); min-height: 32px; }
   text-align: center;
 }
 
+/* 小さな看板（パネルの見出し）：黒漆の帯に生成りの筆文字。パネルの左上の角に掛ける */
+.panel > h2,
+.panel-head h2,
+.card > h2.kanban {
+  display: inline-block;
+  margin: -1px 0 12px -17px;
+  padding: 5px 18px 5px 16px;
+  background: var(--urushi);
+  color: var(--kinari);
+  border-bottom: 2px solid var(--kin);
+  border-radius: var(--radius) 0 var(--radius) 0;
+  font-family: var(--fude);
+  font-weight: 400;
+  font-size: 16px;
+  letter-spacing: .14em;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
 /* ===== トップ ===== */
+/* 上部の定式幕の帯（トップ・参加者画面） */
+#view-top::before,
+#view-player::before {
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  height: 72px;
+  background: var(--maku);
+  border-bottom: 4px solid #2a1d14;
+  box-shadow: 0 3px 6px rgba(40, 20, 5, .25);
+}
 .top-wrap {
   max-width: 520px;
   margin: 0 auto;
-  padding: 48px 16px 32px;
+  padding: 0 16px 40px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
+/* 題字：幕の帯の中央に掛けた黒漆の看板 */
 .logo {
-  font-size: clamp(34px, 9vw, 52px);
-  font-weight: 900;
+  align-self: center;
+  margin-top: -71px;
+  padding: 6px 30px 8px;
+  font-family: var(--fude);
+  font-weight: 400;
+  font-size: clamp(26px, 7.4vw, 40px);
+  line-height: 1.2;
+  letter-spacing: .08em;
   text-align: center;
-  color: var(--accent);
-  letter-spacing: .04em;
-  text-shadow: 0 4px 0 #6b4b00;
+  white-space: nowrap;
+  background: var(--urushi);
+  color: var(--kinari);
+  border: 2px solid var(--kin);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 3px var(--urushi), inset 0 0 0 4px rgba(201, 162, 74, .7), 0 6px 14px rgba(30, 15, 5, .45);
 }
-.sub { text-align: center; color: var(--muted); margin: -6px 0 8px; }
-.top-buttons { display: flex; flex-direction: column; gap: 12px; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+.sub {
+  text-align: center;
+  font-family: var(--mincho);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: .08em;
+  color: var(--sumi);
+  margin: 6px 0 14px;
+}
+.top-buttons { display: flex; flex-direction: column; gap: 14px; }
+.card {
+  position: relative;
+  background-color: var(--ita);
+  background-image: var(--fuda-grain);
+  border: 1px solid var(--cha);
+  border-radius: var(--radius);
+  padding: 0 18px 18px;
+  box-shadow: 0 3px 10px rgba(60, 35, 15, .12);
+}
 .form { display: flex; flex-direction: column; gap: 12px; }
 .form label:not(.check) { display: flex; flex-direction: column; gap: 6px; font-weight: 700; font-size: 14px; }
-.code-input { text-transform: uppercase; letter-spacing: .3em; font-size: 24px !important; font-weight: 900; text-align: center; }
-.error { color: var(--red); margin: 0; min-height: 1em; font-size: 14px; }
-.fatal { background: #4a2020; color: #ffd0d0; padding: 12px 14px; border-radius: 10px; margin: 0; }
+.card > h2.kanban { align-self: flex-start; margin: -1px 0 4px -19px; }
+.code-input {
+  text-transform: uppercase;
+  letter-spacing: .4em;
+  font-family: var(--mono) !important;
+  font-size: 30px !important;
+  font-weight: 700;
+  text-align: center;
+  color: var(--sumi);
+}
+.error { color: #a12a16; margin: 0; min-height: 1em; font-size: 14px; font-weight: 700; }
+.fatal {
+  background: var(--shu);
+  color: var(--kinari);
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--shu-deep);
+  margin: 0;
+  font-weight: 700;
+}
 
 /* ===== MC画面 ===== */
+/* ヘッダ：定式幕の帯。部屋コードは黒漆の看板、その他は白木の札掛けに載せる */
 .host-header {
   position: sticky;
   top: 0;
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px 14px;
   flex-wrap: wrap;
-  padding: 10px 16px;
-  background: #101318ee;
-  backdrop-filter: blur(6px);
-  border-bottom: 1px solid var(--line);
+  padding: 10px 16px 12px;
+  background: var(--maku);
+  border-bottom: 4px solid #2a1d14;
+  box-shadow: 0 3px 8px rgba(40, 20, 5, .3);
 }
-.room-box { display: flex; align-items: baseline; gap: 10px; }
-.room-label { color: var(--muted); font-size: 13px; }
-.room-code { font-size: 40px; font-weight: 900; letter-spacing: .18em; color: var(--accent); line-height: 1; }
-.host-header-btns { display: flex; gap: 8px; flex-wrap: wrap; }
-.host-status { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.room-box { display: flex; align-items: stretch; gap: 10px; }
+.room-label {
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 12px;
+  font-family: var(--mincho);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.25;
+  letter-spacing: .12em;
+  color: var(--kin);
+  background: var(--urushi);
+  border: 2px solid var(--kin);
+  border-right: 0;
+  border-radius: 2px 0 0 2px;
+  box-shadow: 0 3px 8px rgba(20, 10, 5, .4);
+}
+.room-code {
+  margin-left: -10px;
+  padding: 7px 14px 7px 8px;
+  font-family: var(--mono);
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: .2em;
+  line-height: 1;
+  color: var(--kinari);
+  background: var(--urushi);
+  border: 2px solid var(--kin);
+  border-left: 0;
+  border-radius: 0 2px 2px 0;
+  box-shadow: 4px 3px 8px rgba(20, 10, 5, .4);
+}
+.host-header-btns,
+.host-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 52px;
+  padding: 5px 8px;
+  background-color: var(--ita);
+  background-image: var(--fuda-grain);
+  border: 1px solid var(--cha);
+  border-radius: var(--radius);
+  box-shadow: 0 3px 8px rgba(20, 10, 5, .35);
+}
+.host-header-btns .btn { min-height: 40px; }
+.host-status { margin-left: auto; padding: 5px 14px; gap: 12px; }
 .count { font-weight: 800; }
+/* 席亭（MC）の名前 */
+.room-box .name-btn {
+  align-self: stretch;
+  max-width: 240px;
+  padding: 0 12px;
+  background-color: var(--ita);
+  background-image: var(--fuda-grain);
+  border: 1px solid var(--cha);
+  box-shadow: 0 3px 8px rgba(20, 10, 5, .35);
+}
+.room-box .name-btn::before {
+  content: "席亭";
+  flex: 0 0 auto;
+  font-family: var(--mincho);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  padding: 1px 6px;
+  background: var(--shu);
+  color: var(--kinari);
+  border-radius: 1px;
+  line-height: 1.5;
+}
 
 .host-main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 16px;
-  padding: 16px;
+  gap: 22px;
+  padding: 22px 18px 32px;
   align-items: start;
 }
-.host-left, .host-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
-.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-.panel-head h2 { margin: 0; }
+.host-left, .host-right { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.panel {
+  position: relative;
+  background-color: var(--ita);
+  background-image: var(--fuda-grain);
+  border: 1px solid var(--cha);
+  border-radius: var(--radius);
+  padding: 0 16px 14px;
+  box-shadow: 0 3px 10px rgba(60, 35, 15, .1);
+}
+.panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.panel-head h2 { margin-bottom: 0; }
+.panel-head > .check,
+.panel-head > .bulk,
+.panel-head > .btn { margin-top: 8px; margin-bottom: 0; }
+.ph-title { display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; min-width: 0; }
+.ph-title .muted { padding-top: 2px; }
 .bulk { display: flex; gap: 6px; flex-wrap: wrap; }
+.drag-hint { font-weight: 400; }
+.hint-grip { display: inline-flex; vertical-align: -4px; padding: 0 2px; color: var(--sumi); }
 
+/* 右の列：1枚の帳場の板に、見出しの帯を横いっぱいに渡す */
+.host-right {
+  gap: 0;
+  background-color: var(--ita);
+  background-image: var(--fuda-grain);
+  border: 1px solid var(--cha);
+  border-radius: var(--radius);
+  box-shadow: 0 3px 10px rgba(60, 35, 15, .1);
+  overflow: hidden;
+}
+.host-right .panel {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding-bottom: 16px;
+}
+.host-right .panel + .panel { border-top: 1px solid rgba(90, 59, 34, .45); }
+.host-right .panel > h2 {
+  display: block;
+  margin: 0 -16px 12px;
+  border-radius: 0;
+  text-align: center;
+  letter-spacing: .3em;
+}
+
+/* お題の帯は少し大きく */
+.topic-panel > h2 { font-size: 18px; padding: 6px 28px 6px 18px; }
 .now-topic {
+  background: var(--urushi);
+  color: var(--kinari);
+  border: 2px solid var(--kin);
+  border-radius: 2px;
+  box-shadow: var(--kanban-shadow);
+  font-family: var(--fude);
+  font-weight: 400;
   font-size: 24px;
-  font-weight: 900;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: #11141a;
-  border-left: 5px solid var(--accent);
-  margin-bottom: 8px;
+  line-height: 1.4;
+  padding: 12px 18px;
+  margin-bottom: 10px;
+  text-align: center;
   word-break: break-word;
 }
-.now-topic.empty { color: var(--muted); font-weight: 700; font-size: 16px; }
-.topic-list-box { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.now-topic.empty { font-family: var(--mincho); font-weight: 700; font-size: 16px; color: #cdbf9f; }
+.topic-list-box { margin-top: 10px; border-top: 1px dashed var(--cha-2); padding-top: 10px; }
 .topic-list-box .label { font-size: 14px; font-weight: 700; }
 .topic-list-box textarea { margin: 4px 0 8px; font-size: 14px; }
 
+/* 参加者カード：横長の木札。左に提灯（状態）、名前、小さなフリップ、ボタン */
 .player-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+  gap: 14px;
 }
 .pcard {
-  background: var(--panel2);
-  border: 2px solid transparent;
+  display: grid;
+  grid-template-columns: 34px minmax(140px, 210px) minmax(118px, 1fr);
+  grid-template-areas:
+    "side head head"
+    "side flip btns";
+  gap: 8px 12px;
+  padding: 10px 12px 12px 8px;
+  background-color: var(--fuda);
+  background-image: var(--fuda-grain), linear-gradient(180deg, #fbf4e6, #f0e2c6);
+  border: 1px solid var(--cha);
   border-radius: var(--radius);
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  box-shadow: 0 2px 0 var(--fuda-edge), 0 4px 8px rgba(60, 35, 15, .12);
 }
-.pcard.onstage { border-color: var(--accent); box-shadow: 0 0 0 4px #ffb40055; background: #33301f; }
-.pcard.off { opacity: .55; filter: grayscale(1); }
-.pcard-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-weight: 800; }
-.pcard-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pcard-hand { color: var(--accent); font-weight: 900; white-space: nowrap; }
-.pcard-flip { position: relative; background: #fff; border-radius: 8px; overflow: hidden; }
+.pcard.onstage { border-color: var(--murasaki-deep); box-shadow: 0 0 0 4px var(--murasaki), 0 6px 14px rgba(47, 24, 71, .3); }
+.pcard.off { opacity: .6; filter: grayscale(.85); }
+.pcard-side { grid-area: side; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.pcard-head { grid-area: head; display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 30px; }
+.pcard-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--fude);
+  font-size: 20px;
+  line-height: 1.3;
+}
+.pcard-hand {
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border-radius: 2px;
+  background: var(--shu);
+  color: var(--kinari);
+  font-weight: 900;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.pcard-flip {
+  grid-area: flip;
+  align-self: start;
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--sumi);
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(40, 20, 5, .2);
+}
 .pcard-badge {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  top: 5px;
+  left: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 2px;
+  line-height: 1.5;
+}
+/* 状態の文字札（提灯の色と対応） */
+.pcard-badge.st-idle { background: var(--fuda-2); color: var(--sumi); border: 1px solid var(--cha-2); }
+.pcard-badge.st-writing { background: var(--st-warn); color: var(--kinari); }
+.pcard-badge.st-submitted { background: var(--st-ok); color: var(--kinari); }
+.pcard-badge.st-onstage { background: var(--murasaki); color: var(--kinari); }
+.pcard-badge.st-off { background: #5d5955; color: #fff; }
+.pcard-btns { grid-area: btns; display: flex; flex-direction: column; gap: 7px; align-self: start; }
+.pcard-btns .btn { width: 100%; }
+
+/* カードの小さな提灯（ステージの提灯と同じ点灯色） */
+.pcard-lantern {
+  --lt-core: #bc5a3c;
+  --lt-body: #9e402a;
+  --lt-edge: #5c2114;
+  --lt-rib: rgba(40, 10, 4, .55);
+  display: block;
+  width: 28px;
+  transition: opacity .3s, filter .3s;
+}
+.pcard-lantern.st-idle { opacity: .8; filter: saturate(.75); }
+.pcard-lantern.st-writing { --lt-core: #ec7c48; --lt-body: #d9532b; --lt-edge: #8a2b15; }
+.pcard-lantern.st-submitted { --lt-core: #ffd59a; --lt-body: #f07438; --lt-edge: #a53a1a; --lt-rib: rgba(90, 25, 6, .45); }
+.pcard-lantern.st-onstage {
+  --lt-core: #fff3cf;
+  --lt-body: #fb8d45;
+  --lt-edge: #b9481f;
+  --lt-rib: rgba(110, 35, 8, .4);
+  filter: drop-shadow(0 0 5px rgba(255, 170, 90, .55));
+}
+.pcard-lantern.st-off { --lt-core: #8e8984; --lt-body: #6f6b67; --lt-edge: #3d3a38; --lt-rib: rgba(20, 20, 20, .45); }
+.pcard-lantern.st-off .lt-fringe, .pcard-lantern.st-off .lt-knot { fill: #6a6560; }
+
+/* MCのカード：席亭の朱札 */
+.pcard-mc {
+  flex: 0 0 auto;
+  font-family: var(--mincho);
   font-size: 12px;
   font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 999px;
+  letter-spacing: .1em;
+  padding: 1px 7px;
+  border-radius: 1px;
+  background: var(--shu);
+  color: var(--kinari);
+  line-height: 1.5;
 }
-/* ステータスバッジ（MC画面） */
-.pcard-badge.st-idle { background: #5b6272; color: #fff; }
-.pcard-badge.st-writing { background: var(--blue); color: #06203d; }
-.pcard-badge.st-submitted { background: var(--green); color: #062b1a; }
-.pcard-badge.st-onstage { background: var(--accent); color: var(--accent-ink); }
-.pcard-badge.st-off { background: #3a3f4a; color: #9aa3b2; }
-/* 参加者画面のフリップ上バッジ */
-.b-done { background: var(--green); color: #062b1a; }
-.b-open { background: var(--accent); color: var(--accent-ink); }
-.pcard-btns { display: flex; gap: 6px; flex-wrap: wrap; }
-.pcard-btns .btn { flex: 1 1 auto; }
 
-/* 回答履歴 */
+/* 並び替えのつまみ（縦3本線） */
+.pcard-grip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 36px;
+  border-radius: 2px;
+  color: var(--sumi-2);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.pcard-grip:hover { background: rgba(90, 59, 34, .1); color: var(--sumi); }
+.pcard.dragging {
+  position: relative;
+  z-index: 20;
+  opacity: .7;
+  filter: none;
+  box-shadow: 0 10px 24px rgba(40, 20, 5, .4);
+  pointer-events: none;
+}
+body.reordering, body.reordering * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+.drop-indicator {
+  position: fixed;
+  z-index: 30;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--shu);
+  pointer-events: none;
+}
+
+/* 回答履歴：白いフリップを紫の座布団に載せる */
 .history-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 160px);
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, 172px);
+  gap: 16px 14px;
 }
-.hist-item { width: 160px; }
-.hist-flip { background: #fff; border-radius: 6px; overflow: hidden; }
-.hist-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; margin-top: 4px; }
-.hist-name { font-weight: 800; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hist-time { flex: 0 0 auto; }
+.hist-item { width: 172px; }
+.hist-flip {
+  padding: 8px;
+  border-radius: 7px;
+  background: radial-gradient(ellipse at 50% 45%, #5d3784, var(--murasaki) 60%, #3a1f55);
+  box-shadow: 0 3px 0 var(--murasaki-deep), 0 5px 8px rgba(40, 15, 50, .3);
+}
+.hist-flip .flip-canvas { background: #fff; border: 1px solid var(--sumi); border-radius: 1px; }
+.hist-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; margin-top: 8px; padding: 0 2px; }
+.hist-name { font-family: var(--fude); font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-time { flex: 0 0 auto; font-family: var(--mincho); font-weight: 700; }
 
+/* シンキングタイマー：黒漆の板に生成りの数字。残り10秒で朱 */
 .timer-display {
-  font-size: 64px;
-  font-weight: 900;
+  display: block;
+  width: max-content;
+  min-width: 170px;
+  margin: 2px auto 6px;
+  padding: 2px 20px 4px;
+  font-family: var(--mincho);
+  font-weight: 800;
+  font-size: 54px;
   text-align: center;
   font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-  padding: 4px 0;
+  line-height: 1.15;
+  background: var(--urushi);
+  color: var(--kinari);
+  border: 2px solid var(--kin);
+  border-radius: 2px;
+  box-shadow: var(--kanban-shadow);
 }
-.timer-display.danger { color: var(--red); }
+.timer-display.danger { color: var(--shu-hi); }
 .sec-input { width: 90px; text-align: center; }
 
-.hands-list { margin: 0; padding-left: 28px; font-size: 18px; font-weight: 800; }
-.hands-list li { padding: 3px 0; }
-.hands-list li:not(.none) > * { vertical-align: middle; }
-.hands-list .hand-name { display: inline-block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px; }
-.hands-list li.none { list-style: none; margin-left: -28px; font-size: 14px; font-weight: 400; }
+/* 挙手順：木札に「① 名前」 */
+.hands-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.hands-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 10px;
+  background-color: var(--fuda);
+  background-image: var(--fuda-bg);
+  border: 1px solid var(--cha-2);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 0 var(--fuda-edge);
+}
+.hands-list .hand-no { font-family: var(--fude); font-size: 22px; line-height: 1; color: var(--shu); }
+.hands-list .hand-name { flex: 1 1 auto; min-width: 0; font-family: var(--fude); font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hands-list li.none { background: none; border: 0; box-shadow: none; padding: 2px 0; font-size: 14px; }
 
-.se-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-bottom: 8px; }
-.se-grid.custom { grid-template-columns: 1fr; }
+/* SEパッド */
+.se-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 9px; margin-bottom: 10px; }
+.se-grid.custom { grid-template-columns: 1fr; gap: 7px; }
 .se-grid.custom:empty { display: none; }
 .se-choice { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 14px; flex-wrap: wrap; }
-.se-choice select { flex: 1; min-width: 0; min-height: 36px; background: #11141a; border: 1px solid var(--line); border-radius: 10px; padding: 4px 8px; color: var(--text); }
-.se-btn { min-height: 52px; font-size: 15px; padding: 0 8px; }
-.se-custom { display: flex; gap: 4px; }
-.se-custom .se-btn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 52px; background: #2c2640; }
-.se-custom .se-btn.big-file { background: #3a2a2a; }
-.mini {
-  width: 40px;
-  min-height: 44px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--panel2);
-  cursor: pointer;
-  font-weight: 800;
+select {
+  min-height: 38px;
+  background: #fffdf8;
+  border: 1px solid var(--cha);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  color: var(--sumi);
 }
-.mini:hover { background: #313745; }
+.se-choice select { flex: 1; min-width: 0; }
+.se-btn { min-height: 52px; font-size: 15px; padding: 0 8px; }
+.se-custom { display: flex; gap: 5px; align-items: stretch; }
+.se-custom .se-btn {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  line-height: 50px;
+  border-left: 5px solid var(--murasaki);
+}
+.se-custom .se-btn.big-file { border-left-color: var(--kaki); }
+.se-custom .se-mini { flex: 0 0 auto; min-height: 52px; padding: 0 9px; }
 .file-btn { width: 100%; margin: 4px 0; }
+#h-se-mute span { white-space: nowrap; }
 
 /* ===== フリップ共通 ===== */
 .flip-canvas {
@@ -299,56 +706,94 @@ body.mode-player { overflow: hidden; overscroll-behavior: none; }
   height: 100vh;
   height: 100dvh;
 }
+#view-player::before { height: 40px; border-bottom-width: 3px; }
 .p-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
-  padding-top: max(6px, env(safe-area-inset-top));
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  padding: 4px 12px;
+  background-color: var(--ita);
+  background-image: var(--fuda-grain);
+  border-bottom: 1px solid var(--cha);
+  box-shadow: 0 2px 4px rgba(60, 35, 15, .08);
   flex-wrap: wrap;
 }
+#p-room { font-family: var(--mono); font-weight: 700; letter-spacing: .08em; }
 .name-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 44px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px dashed var(--line);
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius);
   background: transparent;
-  font-weight: 800;
+  font-family: var(--fude);
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--sumi);
   cursor: pointer;
-  max-width: 45vw;
+  max-width: 50vw;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.name-btn::after { content: " ✎"; color: var(--muted); font-weight: 400; }
-.p-timer {
-  font-size: 24px;
-  font-weight: 900;
-  font-variant-numeric: tabular-nums;
-  padding: 0 8px;
+.name-btn:hover { background: rgba(255, 250, 240, .7); }
+.name-btn::after {
+  content: "変更";
+  flex: 0 0 auto;
+  font-family: var(--gothic);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  padding: 0 5px;
+  color: var(--sumi-2);
+  border: 1px solid var(--cha-2);
+  border-radius: 2px;
+  line-height: 1.6;
 }
-.p-timer.danger { color: var(--red); }
+/* タイマー：小さな木札 */
+.p-timer {
+  padding: 2px 10px;
+  font-family: var(--mincho);
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  background-color: var(--fuda);
+  background-image: var(--fuda-bg);
+  border: 1px solid var(--cha);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 0 var(--fuda-edge);
+  white-space: nowrap;
+}
+.p-timer.danger { color: var(--shu); border-color: var(--shu); }
+/* お題：黒漆に金縁の看板 */
 .p-topic {
-  padding: 10px 16px;
+  margin: 10px 12px 4px;
+  padding: 10px 18px;
+  background: var(--urushi);
+  color: var(--kinari);
+  border: 2px solid var(--kin);
+  border-radius: 2px;
+  box-shadow: var(--kanban-shadow);
+  font-family: var(--fude);
+  font-weight: 400;
   font-size: clamp(20px, 3vw, 34px);
-  font-weight: 900;
   text-align: center;
-  line-height: 1.35;
+  line-height: 1.4;
   max-height: 28vh;
   overflow: auto;
   word-break: break-word;
   flex: 0 0 auto;
 }
-.p-topic.waiting { color: var(--muted); font-weight: 700; font-size: 18px; }
+.p-topic.waiting { font-family: var(--mincho); font-weight: 700; font-size: 18px; color: #cdbf9f; }
 .p-flip-area {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 10px;
+  padding: 8px 10px;
   overflow: hidden;
 }
 .flip-wrap {
@@ -356,39 +801,52 @@ body.mode-player { overflow: hidden; overscroll-behavior: none; }
   width: 100%;
   aspect-ratio: 4 / 3;
   background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 6px 24px #0008;
+  border: 1px solid var(--sumi);
+  border-radius: 2px;
+  box-shadow: 0 3px 0 rgba(60, 35, 15, .12), 0 5px 10px rgba(60, 35, 15, .2);
   overflow: hidden;
   flex: 0 0 auto;
 }
 .flip-wrap .flip-canvas { height: 100%; touch-action: none; cursor: crosshair; }
 .flip-wrap .flip-canvas.text-mode { cursor: default; }
 .flip-wrap.locked .flip-canvas { cursor: not-allowed; }
+/* フリップ上の札（提出済：木札／オープン中：朱の札） */
 .flip-badge {
   position: absolute;
   top: 8px;
   right: 8px;
-  padding: 4px 12px;
-  border-radius: 999px;
+  padding: 3px 12px;
+  border-radius: 2px;
   font-weight: 900;
   font-size: 14px;
+  letter-spacing: .06em;
   pointer-events: none;
+  box-shadow: 0 2px 4px rgba(40, 20, 5, .25);
 }
+.b-done {
+  background-color: var(--fuda);
+  background-image: var(--fuda-bg);
+  color: var(--sumi);
+  border: 1px solid var(--cha);
+}
+.b-open { background: var(--shu); color: var(--kinari); border: 1px solid var(--shu-deep); }
 .flip-lock {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  background: #14161bcc;
-  color: #fff;
+  background: rgba(23, 20, 18, .95);
+  border-top: 2px solid var(--kin);
+  color: var(--kinari);
   text-align: center;
   padding: 6px;
-  font-weight: 800;
-  line-height: 1.3;
+  font-weight: 700;
+  line-height: 1.35;
   pointer-events: none;
 }
-.flip-lock small { font-weight: 400; color: #ccd; }
-/* 自分の番（未オープン）のオーバーレイ */
+.flip-lock > span { font-family: var(--fude); font-weight: 400; letter-spacing: .1em; }
+.flip-lock small { font-weight: 500; color: #ddd0b4; }
+/* 自分の番（未オープン）：紫の座布団の上に筆文字 */
 .flip-turn {
   position: absolute;
   inset: 0;
@@ -396,32 +854,36 @@ body.mode-player { overflow: hidden; overscroll-behavior: none; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4%;
+  gap: 6%;
   padding: 12px;
-  background: #14161be6;
-  color: #fff;
+  background: radial-gradient(ellipse at 50% 45%, #5d3784, var(--murasaki) 55%, #34194d);
+  color: var(--kinari);
   text-align: center;
   animation: turn-in .3s ease-out;
 }
 .flip-turn-title {
+  font-family: var(--fude);
+  font-weight: 400;
   font-size: clamp(26px, 6vw, 56px);
-  font-weight: 900;
-  color: var(--accent);
-  letter-spacing: .04em;
-  text-shadow: 0 3px 0 #6b4b00;
+  line-height: 1.2;
+  letter-spacing: .08em;
+  color: var(--kinari);
+  text-shadow: 0 2px 4px rgba(20, 5, 35, .6);
 }
 .btn.flip-turn-btn {
   min-height: 64px;
   font-size: clamp(20px, 3.4vw, 30px);
+  font-weight: 900;
   padding: 0 32px;
-  border-radius: 16px;
-  box-shadow: 0 6px 0 #a87400;
+  box-shadow: 0 5px 0 var(--shu-deep), 0 8px 14px rgba(20, 5, 35, .45);
 }
 
 .p-toolbar {
   flex: 0 0 auto;
-  background: var(--panel);
-  border-top: 1px solid var(--line);
+  background-color: var(--ita);
+  background-image: var(--fuda-grain);
+  border-top: 1px solid var(--cha);
+  box-shadow: 0 -2px 6px rgba(60, 35, 15, .1);
   padding: 8px 10px;
   padding-bottom: calc(8px + env(safe-area-inset-bottom));
   display: flex;
@@ -439,40 +901,59 @@ body.mode-player { overflow: hidden; overscroll-behavior: none; }
   margin: 0 auto;
 }
 .tool-row.actions .btn { min-height: 52px; font-size: 17px; }
-.seg { display: inline-flex; background: var(--panel2); border-radius: 12px; padding: 3px; }
-.seg button {
-  min-height: 42px;
-  padding: 0 18px;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  border-radius: 9px;
-  font-weight: 800;
+/* 手書き／文字：2枚の札。選択中は黒漆に金縁 */
+.seg { display: inline-flex; gap: 6px; }
+.seg button,
+.tool {
+  min-height: 44px;
+  border-radius: var(--radius);
+  border: 1px solid var(--cha);
+  background-color: var(--fuda);
+  background-image: var(--fuda-bg);
+  color: var(--sumi);
+  box-shadow: 0 2px 0 var(--fuda-edge);
   cursor: pointer;
+  touch-action: manipulation;
 }
-.seg button.on { background: var(--accent); color: var(--accent-ink); }
+.seg button { padding: 0 24px; font-weight: 700; letter-spacing: .1em; }
+.seg button.on,
+.tool.on {
+  background: var(--urushi);
+  border-color: var(--kin);
+  color: var(--kinari);
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 74, .45), 0 2px 0 #000;
+}
 .seg button:disabled { opacity: .5; cursor: not-allowed; }
 .tool {
   min-width: 44px;
-  min-height: 44px;
-  border-radius: 10px;
-  background: var(--panel2);
-  border: 2px solid transparent;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  touch-action: manipulation;
 }
-.tool.on { border-color: var(--accent); background: #3b3320; }
 .tool:disabled { opacity: .4; cursor: not-allowed; }
-.swatch i { display: block; width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff4; }
-.width i { display: block; background: #e8e8e8; border-radius: 50%; }
+.swatch i { display: block; width: 24px; height: 24px; border-radius: 50%; box-shadow: 0 0 0 2px #fffdf8, 0 0 0 3px rgba(60, 35, 15, .45); }
+.swatch.on i { box-shadow: 0 0 0 2px var(--kinari), 0 0 0 3px var(--kin); }
+.width i { display: block; background: var(--sumi); border-radius: 50%; }
+.width.on i { background: var(--kinari); }
 .text-tool { padding: 0 12px; font-weight: 700; font-size: 14px; }
-.sep { width: 1px; height: 28px; background: var(--line); margin: 0 4px; }
+.sep { width: 1px; height: 28px; background: var(--cha-2); margin: 0 4px; }
 .fe-text { font-size: 18px; min-height: 80px; }
 .fe-tools { display: flex; flex-direction: column; gap: 8px; }
+
+/* ステージの .mc-tag（席亭の札）の土台。ステージ側の .s-pl .mc-tag などで色・大きさを上書きして使う */
+.mc-tag {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 900;
+  font-style: normal;
+  letter-spacing: .05em;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #ffb400;
+  color: #1d1600;
+  line-height: 1.4;
+}
 
 /* ===== ステージ画面（寄席の舞台） =====
    1920×1080 想定。横は vw、縦の配置は vh で決める（16:9 なら 1vh = .5625vw）
@@ -1193,43 +1674,50 @@ body.chroma .s-pl.st-off { filter: brightness(.6); }
 }
 
 /* ===== MCの交代 ===== */
-/* 参加者カードの「MCを渡す」（控えめ） */
-.btn.subtle {
-  background: transparent;
-  border-style: dashed;
-  color: var(--muted);
-  font-weight: 600;
-}
-.btn.subtle:hover:not(:disabled) { color: var(--text); background: #262b35; }
-
-/* MC画面ヘッダのお知らせ帯 */
+/* MC画面ヘッダのお知らせ帯（通常：白木の札／部屋コードが変わった：朱の帯） */
 .host-banner {
   flex: 1 1 100%;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: #43381a;
-  color: #ffd574;
+  padding: 6px 8px 6px 14px;
+  border-radius: var(--radius);
+  background-color: var(--ita);
+  background-image: var(--fuda-grain);
+  border: 1px solid var(--cha);
+  color: var(--sumi);
   font-weight: 700;
+  box-shadow: 0 3px 8px rgba(20, 10, 5, .35);
 }
 .host-banner > span { flex: 1; }
 .host-banner.alert {
-  background: #5a1e1e;
-  color: #fff;
-  border: 2px solid var(--red);
+  background: var(--shu);
+  border-color: var(--shu-deep);
+  color: var(--kinari);
   font-size: 18px;
 }
-.host-banner.alert b { color: var(--accent); font-size: 24px; letter-spacing: .1em; }
+.host-banner.alert b {
+  font-family: var(--mono);
+  font-size: 26px;
+  letter-spacing: .15em;
+  padding: 0 8px;
+  margin: 0 4px;
+  background: var(--urushi);
+  color: var(--kinari);
+  border: 1px solid var(--kin);
+  border-radius: 2px;
+}
+.host-banner.alert .btn.subtle { color: var(--kinari); border-color: rgba(247, 239, 220, .7); }
+.host-banner.alert .btn.subtle:hover { background: rgba(0, 0, 0, .15); color: var(--kinari); }
 
 /* 参加フォームのお知らせ（MCを渡した直後） */
 .join-note {
-  margin: 0 0 12px;
+  margin: 0 0 4px;
   padding: 10px 12px;
-  border-radius: 10px;
-  background: #173d2c;
-  color: #7ff0b9;
+  border-radius: var(--radius);
+  background: #e4eee2;
+  border-left: 5px solid var(--moegi);
+  color: #1d4a30;
   font-weight: 700;
   font-size: 14px;
 }
@@ -1243,130 +1731,115 @@ body.chroma .s-pl.st-off { filter: brightness(.6); }
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: #0b0d11ee;
+  background: rgba(23, 20, 18, .82);
 }
-.handover-box { text-align: center; max-width: 520px; }
-.handover-title { font-size: 28px; font-weight: 800; margin: 18px 0 8px; }
-.handover-sub { color: var(--muted); margin: 0; }
+.handover-box {
+  text-align: center;
+  width: min(520px, 100%);
+  padding: 30px 24px 26px;
+  background-color: var(--ita);
+  background-image: var(--fuda-grain);
+  border: 2px solid var(--cha);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 4px var(--ita), inset 0 0 0 5px rgba(90, 59, 34, .4), 0 12px 40px rgba(0, 0, 0, .5);
+}
+.handover-title { font-family: var(--fude); font-size: 28px; line-height: 1.3; margin: 18px 0 8px; color: var(--sumi); }
+.handover-sub { color: var(--sumi-2); margin: 0; }
 .handover-spin {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   margin: 0 auto;
   border-radius: 50%;
-  border: 5px solid var(--line);
-  border-top-color: var(--accent);
+  border: 5px solid var(--fuda-2);
+  border-top-color: var(--shu);
   animation: handover-spin 1s linear infinite;
 }
 @keyframes handover-spin { to { transform: rotate(360deg); } }
 
-/* ページ内ダイアログ（confirm / alert の置き換え。js/dialog.js） */
+/* ページ内ダイアログ（confirm / alert の置き換え。js/dialog.js）：白木の紙にこげ茶の枠 */
 .app-dialog {
-  border: 1px solid var(--line);
+  border: 2px solid var(--cha);
   border-radius: var(--radius);
-  background: var(--panel);
-  color: var(--text);
-  padding: 20px;
-  max-width: min(380px, calc(100vw - 32px));
+  background-color: var(--ita);
+  background-image: var(--fuda-grain);
+  color: var(--sumi);
+  padding: 22px 20px 18px;
+  max-width: min(400px, calc(100vw - 32px));
   width: 100%;
-  box-shadow: 0 12px 40px #000000aa;
+  box-shadow: inset 0 0 0 4px var(--ita), inset 0 0 0 5px rgba(90, 59, 34, .35), 0 12px 40px rgba(0, 0, 0, .45);
 }
-.app-dialog::backdrop { background: #0b0d11cc; }
-.app-dialog-msg { font-size: 15px; line-height: 1.6; margin-bottom: 18px; }
+.app-dialog::backdrop { background: rgba(23, 20, 18, .6); }
+.app-dialog-msg { font-size: 16px; font-weight: 500; line-height: 1.7; margin-bottom: 18px; }
 .app-dialog-input { width: 100%; margin-bottom: 18px; }
 .app-dialog-btns { display: flex; justify-content: flex-end; gap: 10px; }
 .app-dialog-btns .btn { min-height: 44px; min-width: 96px; }
 
+/* ===== MC自身の回答 ===== */
+.mine-body { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.mine-flip-box { flex: 1 1 320px; max-width: 440px; min-width: 0; }
+.mine-side { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.mine-side .tool-row { justify-content: flex-start; }
+.mine-side .sep { margin: 0 1px; }
+.mine-side .text-tool { padding: 0 9px; }
+.mine-flip .flip-turn-title { font-size: clamp(22px, 3vw, 36px); }
+.mine-flip .btn.flip-turn-btn { min-height: 56px; font-size: 22px; padding: 0 24px; }
+.mine-panel .panel-head .check { margin-top: 6px; }
+
 /* ===== レスポンシブ ===== */
+/* 広い画面：「お題」と「自分の回答」を横に並べ、参加者カードを上の方に出す */
+@media (min-width: 1400px) {
+  .host-left { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .host-left > .panel { grid-column: 1 / -1; }
+  .host-left > .topic-panel { grid-column: 1; }
+  .host-left > .mine-panel { grid-column: 2; }
+  .mine-flip-box { flex-basis: 100%; max-width: 420px; }
+}
 @media (max-width: 1100px) {
   .host-main { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {
-  .host-header { gap: 8px; padding: 8px 12px; }
+  .host-header { gap: 8px; padding: 8px 10px; }
   .room-code { font-size: 32px; }
   .host-status { margin-left: 0; }
-  .host-main { padding: 10px; gap: 10px; }
+  .host-main { padding: 14px 10px; gap: 16px; }
   .btn.small { min-height: 44px; }
-  .player-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .player-grid { grid-template-columns: 1fr; }
+  .history-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .hist-item { width: auto; }
 
   /* 参加者：縦レイアウト。フリップは幅いっぱい、ツールバーは下部に固定 */
-  .p-header { gap: 6px; padding: 4px 8px; padding-top: max(4px, env(safe-area-inset-top)); }
-  .p-header .net-badge { font-size: 12px; }
+  #view-player::before { height: 30px; }
+  .p-header { gap: 6px; padding: 2px 8px; }
+  .p-header .net-badge { font-size: 12px; padding: 2px 7px; }
+  .name-btn { font-size: 18px; max-width: 46vw; }
   #p-room { display: none; }
-  .p-topic { font-size: 19px; padding: 8px 12px; max-height: 22vh; }
-  .p-flip-area { padding: 4px 0; }
-  .flip-wrap { border-radius: 0; }
+  .p-topic { font-size: 19px; padding: 8px 12px; margin: 8px 8px 2px; max-height: 22vh; }
+  .p-flip-area { padding: 6px 0; }
+  .flip-wrap { border-radius: 0; border-left: 0; border-right: 0; }
   .p-toolbar { padding: 6px 6px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); gap: 6px; }
   .tool-row { gap: 4px; }
   .sep { display: none; }
   .text-tool { padding: 0 8px; font-size: 13px; }
+  /* 色・太さの6つを1段目、消しゴム・戻す・全消しを2段目に揃える */
+  .fe-draw-tools:not([hidden]) { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .fe-draw-tools .tool { width: 100%; }
+  .fe-draw-tools .text-tool { grid-column: span 2; }
   .seg { width: 100%; }
   .seg button { flex: 1; min-height: 44px; }
   .fe-text { min-height: 64px; font-size: 16px; }
   .fe-tools { gap: 6px; }
 }
 
-/* ===== MC自身の回答 ===== */
-.room-box .name-btn { align-self: center; max-width: 200px; min-height: 40px; }
-.mine-body { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
-.mine-flip-box { flex: 1 1 320px; max-width: 520px; min-width: 0; }
-.mine-flip { box-shadow: 0 4px 16px #0006; }
-.mine-side { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.mine-side .tool-row { justify-content: flex-start; }
-.mine-flip .flip-turn-title { font-size: clamp(22px, 3vw, 36px); }
-.mine-flip .btn.flip-turn-btn { min-height: 56px; font-size: 22px; padding: 0 24px; }
-.mine-panel .panel-head .check { margin: 0; }
-
-/* MCのカード・MC表示 */
-.pcard-mc, .mc-tag {
-  flex: 0 0 auto;
-  font-size: 11px;
-  font-weight: 900;
-  font-style: normal;
-  letter-spacing: .05em;
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  line-height: 1.4;
+/* 狭いカード（スマホのMC画面など）：提灯の列＋縦積み */
+@media (max-width: 520px) {
+  .pcard {
+    grid-template-columns: 34px minmax(0, 1fr);
+    grid-template-areas:
+      "side head"
+      "side flip"
+      "side btns";
+  }
+  .pcard-btns { flex-direction: row; flex-wrap: wrap; }
+  .pcard-btns .btn { width: auto; flex: 1 1 auto; }
 }
-.pcard-head .pcard-name { flex: 1 1 auto; min-width: 0; }
-
-/* ===== 並び替え（⠿ をドラッグ） ===== */
-.drag-hint { font-weight: 400; margin-left: 6px; }
-.pcard-grip {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  margin: -4px 0 -4px -4px;
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 18px;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.pcard-grip:hover { background: #ffffff14; color: var(--text); }
-.pcard.dragging {
-  position: relative;
-  z-index: 20;
-  opacity: .6;
-  filter: none;
-  box-shadow: 0 10px 30px #000a;
-  pointer-events: none;
-}
-body.reordering, body.reordering * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
-.drop-indicator {
-  position: fixed;
-  z-index: 30;
-  width: 4px;
-  border-radius: 2px;
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
-  pointer-events: none;
-}
-

@@ -4,6 +4,7 @@ import { createFlipEditor } from '../flipEditor.js';
 import { sanitizeName, flipHasContent } from '../state.js';
 import { alertDialog, promptDialog } from '../dialog.js';
 import * as se from '../se.js';
+import { ICON_SPEAKER, ICON_MUTED, circled } from '../icons.js';
 
 const $ = (id) => document.getElementById(id);
 const LS_NAME = 'ogiri.name';
@@ -265,7 +266,8 @@ export function startPlayerView({ code, name, clientId, onExit }) {
     sb.classList.toggle('primary', !submitted || mine);
     sb.disabled = mine;
     const hb = $('p-hand');
-    hb.textContent = raised ? `✋ ${me.hand.order || '…'}番目（取り下げ）` : '✋ 挙手';
+    hb.textContent = raised ? `挙手中 ${circled(me.hand.order)}` : '挙手';
+    hb.title = raised ? 'もう一度押すと挙手を取り下げます' : '';
     hb.classList.toggle('on', raised);
     hb.disabled = mine;
     const badge = $('p-badge');
@@ -353,11 +355,16 @@ export function startPlayerView({ code, name, clientId, onExit }) {
   });
 
   const muteBtn = $('p-mute');
+  const renderMute = () => {
+    muteBtn.innerHTML = se.isMuted() ? ICON_MUTED : ICON_SPEAKER;
+    muteBtn.classList.toggle('on', se.isMuted());
+    muteBtn.setAttribute('aria-pressed', se.isMuted() ? 'true' : 'false');
+  };
   muteBtn.addEventListener('click', () => {
     se.setMuted(!se.isMuted());
-    muteBtn.textContent = se.isMuted() ? '🔇' : '🔊';
-    muteBtn.classList.toggle('on', se.isMuted());
+    renderMute();
   });
+  renderMute();
 
   // ---- タイマー表示 ----
   setInterval(() => {
@@ -368,7 +375,7 @@ export function startPlayerView({ code, name, clientId, onExit }) {
     }
     const left = Math.max(0, Math.ceil((timer.endsAt - (Date.now() + offset)) / 1000));
     el.hidden = false;
-    el.textContent = `⏱ ${left}`;
+    el.textContent = `残り ${left}`;
     el.classList.toggle('danger', left <= 10);
   }, 250);
 

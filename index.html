@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#14161b">
+  <meta name="theme-color" content="#1c1a19">
   <title>オンライン大喜利</title>
-  <!-- ステージ画面（寄席）用のフォント。.stage の中だけで使う -->
+  <!-- フォント：見出し Reggae One／本文 Zen Kaku Gothic New／補足 Shippori Mincho B1 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reggae+One&family=Shippori+Mincho+B1:wght@500;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reggae+One&family=Shippori+Mincho+B1:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
   <link rel="stylesheet" href="css/style.css">
   <!-- PeerJS（グローバル Peer を使うので module より先に通常読み込み） -->
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -26,11 +26,11 @@
       <div class="top-buttons">
         <button id="btn-create" class="btn big primary" type="button">部屋を作る（MC）</button>
         <button id="btn-show-join" class="btn big" type="button">参加する</button>
-        <button id="btn-show-stage" class="btn big ghost" type="button">ステージ画面（配信用）</button>
+        <button id="btn-show-stage" class="btn big" type="button">ステージ画面（配信用）</button>
       </div>
 
       <form id="join-form" class="card form" hidden autocomplete="off">
-        <h2>参加する</h2>
+        <h2 class="kanban">参加する</h2>
         <p id="join-note" class="join-note" hidden></p>
         <label>部屋コード（4文字）
           <input id="join-code" class="code-input" maxlength="4" autocapitalize="characters" spellcheck="false" placeholder="例: AB7K">
@@ -43,7 +43,7 @@
       </form>
 
       <form id="stage-form" class="card form" hidden autocomplete="off">
-        <h2>ステージ画面を開く</h2>
+        <h2 class="kanban">ステージ画面を開く</h2>
         <label>部屋コード（4文字）
           <input id="stage-code" class="code-input" maxlength="4" autocapitalize="characters" spellcheck="false" placeholder="例: AB7K">
         </label>
@@ -59,13 +59,13 @@
   <section id="view-host" class="view" hidden>
     <header class="host-header">
       <div class="room-box">
-        <span class="room-label">部屋コード</span>
+        <span class="room-label">部屋<br>コード</span>
         <span id="h-code" class="room-code">----</span>
         <button id="h-name" class="name-btn" type="button" title="クリックでMCの名前を変更">MC</button>
       </div>
       <div class="host-header-btns">
-        <button id="h-copy-join" class="btn" type="button">参加用URLをコピー</button>
-        <button id="h-copy-stage" class="btn" type="button">ステージURLをコピー</button>
+        <button id="h-copy-join" class="btn subtle" type="button">参加用URLをコピー</button>
+        <button id="h-copy-stage" class="btn subtle" type="button">ステージURLをコピー</button>
       </div>
       <div class="host-status">
         <span id="h-net" class="net-badge warn">準備中…</span>
@@ -74,13 +74,13 @@
       <!-- MC交代で引き継いだときのお知らせ -->
       <div id="h-banner" class="host-banner" hidden>
         <span id="h-banner-text"></span>
-        <button id="h-banner-close" class="mini" type="button" title="閉じる">×</button>
+        <button id="h-banner-close" class="btn small subtle" type="button" title="このお知らせを閉じる">閉じる</button>
       </div>
     </header>
 
     <main class="host-main">
       <div class="host-left">
-        <section class="panel">
+        <section class="panel topic-panel">
           <h2>お題</h2>
           <div id="h-now-topic" class="now-topic empty">（まだ出題していません）</div>
           <div class="row">
@@ -95,14 +95,14 @@
               <span id="h-topic-left" class="muted small"></span>
             </div>
             <textarea id="h-topic-list" rows="5" spellcheck="false"></textarea>
-            <button id="h-topic-random" class="btn" type="button">🎲 ランダム出題</button>
+            <button id="h-topic-random" class="btn" type="button">ランダム出題</button>
           </div>
         </section>
 
         <!-- MC自身の回答（参加者画面と同じフリップ編集） -->
         <section id="h-mine" class="panel mine-panel">
           <div class="panel-head">
-            <h2>自分の回答 <span id="h-mine-status" class="muted small"></span></h2>
+            <div class="ph-title"><h2>自分の回答</h2><span id="h-mine-status" class="muted small"></span></div>
             <label class="check"><input type="checkbox" id="h-host-answers" checked> 自分も回答する</label>
           </div>
           <div id="h-mine-body" class="mine-body">
@@ -129,9 +129,9 @@
 
         <section class="panel">
           <div class="panel-head">
-            <h2>参加者 <span class="muted small drag-hint">⠿ をドラッグで並び替え（ステージの並びも変わります）</span></h2>
+            <div class="ph-title"><h2>参加者</h2><span class="muted small drag-hint">左端の <span class="hint-grip"><svg class="ico" viewBox="0 0 12 20" width="12" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2.5 3v14M6 3v14M9.5 3v14"/></svg></span> をドラッグで並び替え（ステージの並びも変わります）</span></div>
             <div class="bulk">
-              <button id="h-clear-all" class="btn danger" type="button">全部クリア（次の回へ）</button>
+              <button id="h-clear-all" class="btn" type="button">全部クリア（次の回へ）</button>
               <button id="h-hands-reset" class="btn" type="button">挙手リセット</button>
             </div>
           </div>
@@ -141,8 +141,8 @@
 
         <section class="panel">
           <div class="panel-head">
-            <h2>回答履歴（このお題） <span id="h-history-count" class="muted small"></span></h2>
-            <button id="h-history-clear" class="btn small" type="button">履歴を消す</button>
+            <div class="ph-title"><h2>回答履歴（このお題）</h2><span id="h-history-count" class="muted small"></span></div>
+            <button id="h-history-clear" class="btn small danger" type="button">履歴を消す</button>
           </div>
           <p id="h-history-empty" class="muted small">発表が終わった回答（「下げる」を押したもの）がここに残ります。お題を変えると消えます。</p>
           <div id="h-history" class="history-grid"></div>
@@ -155,7 +155,7 @@
           <div id="h-timer-display" class="timer-display">--</div>
           <div class="row">
             <input id="h-timer-sec" type="number" min="1" max="999" value="60" class="sec-input"> <span>秒</span>
-            <button id="h-timer-start" class="btn primary" type="button">スタート</button>
+            <button id="h-timer-start" class="btn" type="button">スタート</button>
             <button id="h-timer-stop" class="btn" type="button">停止</button>
           </div>
           <label class="se-choice">0秒で鳴らす: <select id="h-timer-se"></select></label>
@@ -171,12 +171,12 @@
           <div id="h-se-builtin" class="se-grid"></div>
           <div id="h-se-custom" class="se-grid custom"></div>
           <label class="se-choice">オープン時に鳴らす: <select id="h-open-se"></select></label>
-          <label class="btn file-btn">＋ mp3を追加<input type="file" id="h-se-file" accept="audio/*,.mp3,.m4a,.wav,.ogg" multiple hidden></label>
-          <p class="muted small">追加したボタンは長押し（または×）で削除、✎で名前変更。1.5MB以下なら参加者の画面でも鳴ります。</p>
+          <label class="btn file-btn">mp3を追加<input type="file" id="h-se-file" accept="audio/*,.mp3,.m4a,.wav,.ogg" multiple hidden></label>
+          <p class="muted small">追加したボタンは長押し（または「削除」）で削除、「名前」で名前変更。1.5MB以下なら参加者の画面でも鳴ります。</p>
           <div class="row">
             <span>音量</span>
             <input id="h-se-vol" type="range" min="0" max="100" class="grow">
-            <button id="h-se-mute" class="btn" type="button">🔊</button>
+            <button id="h-se-mute" class="btn icon" type="button" title="SEのミュート" aria-label="SEのミュート"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
           </div>
         </section>
       </aside>
@@ -191,7 +191,7 @@
       <span id="p-room" class="muted small"></span>
       <span class="spacer"></span>
       <span id="p-timer" class="p-timer" hidden></span>
-      <button id="p-mute" class="btn icon" type="button" title="SEのミュート">🔊</button>
+      <button id="p-mute" class="btn icon subtle" type="button" title="SEのミュート" aria-label="SEのミュート"><svg class="ico" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg></button>
     </header>
 
     <div id="p-topic" class="p-topic waiting">お題を待っています…</div>
@@ -213,7 +213,7 @@
       <div id="p-tools" class="fe-tools"></div>
       <div class="tool-row actions">
         <button id="p-submit" class="btn primary grow" type="button">提出する</button>
-        <button id="p-hand" class="btn grow" type="button">✋ 挙手</button>
+        <button id="p-hand" class="btn grow" type="button">挙手</button>
       </div>
     </div>
   </section>
@@ -258,21 +258,21 @@
   <template id="tpl-flip-tools">
     <div class="tool-row">
       <div class="seg fe-mode">
-        <button type="button" data-mode="draw" class="on">✏️ 手書き</button>
-        <button type="button" data-mode="text">🔤 文字</button>
+        <button type="button" data-mode="draw" class="on">手書き</button>
+        <button type="button" data-mode="text">文字</button>
       </div>
     </div>
     <div class="tool-row tools fe-draw-tools">
       <button type="button" class="tool swatch on" data-color="black" title="黒"><i style="background:#111111"></i></button>
-      <button type="button" class="tool swatch" data-color="red" title="赤"><i style="background:#e53935"></i></button>
-      <button type="button" class="tool swatch" data-color="blue" title="青"><i style="background:#1e5bd8"></i></button>
+      <button type="button" class="tool swatch" data-color="red" title="朱"><i style="background:#c0331f"></i></button>
+      <button type="button" class="tool swatch" data-color="blue" title="藍"><i style="background:#274a78"></i></button>
       <span class="sep"></span>
       <button type="button" class="tool width" data-width="4" title="細"><i style="width:6px;height:6px"></i></button>
       <button type="button" class="tool width on" data-width="8" title="中"><i style="width:11px;height:11px"></i></button>
       <button type="button" class="tool width" data-width="16" title="太"><i style="width:18px;height:18px"></i></button>
       <span class="sep"></span>
       <button type="button" class="tool text-tool fe-eraser" title="消しゴム">消しゴム</button>
-      <button type="button" class="tool text-tool fe-undo" title="1つ戻す">↶ 戻す</button>
+      <button type="button" class="tool text-tool fe-undo" title="1つ戻す">戻す</button>
       <button type="button" class="tool text-tool fe-clear" title="全部消す">全消し</button>
     </div>
     <div class="tool-row fe-text-tools" hidden>

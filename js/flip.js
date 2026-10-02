@@ -3,7 +3,7 @@
 
 export const FLIP_W = 800;
 export const FLIP_H = 600;
-export const INK = { black: '#111111', red: '#e53935', blue: '#1e5bd8' };
+export const INK = { black: '#111111', red: '#c0331f', blue: '#274a78' }; // 墨・朱・藍
 
 const FONT = '"Hiragino Maru Gothic ProN", "Hiragino Sans", "BIZ UDPGothic", "Meiryo", "Yu Gothic", sans-serif';
 const TEXT_PAD = 40;

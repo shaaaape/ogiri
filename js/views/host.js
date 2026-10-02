@@ -5,6 +5,8 @@ import { drawFlip } from '../flip.js';
 import { createFlipEditor } from '../flipEditor.js';
 import { confirmDialog, alertDialog, promptDialog } from '../dialog.js';
 import * as se from '../se.js';
+import { lanternSvg } from '../lantern.js';
+import { ICON_SPEAKER, ICON_MUTED, ICON_GRIP, circled } from '../icons.js';
 
 const $ = (id) => document.getElementById(id);
 const SE_LIMIT = 1.5 * 1024 * 1024;
@@ -466,10 +468,13 @@ export function startHostView() {
     el.className = 'pcard';
     el.dataset.id = id;
     el.innerHTML = `
+      <div class="pcard-side">
+        <span class="pcard-grip" title="ドラッグで並び替え">${ICON_GRIP}</span>
+        <span class="pcard-lantern st-idle">${lanternSvg()}</span>
+      </div>
       <div class="pcard-head">
-        <span class="pcard-grip" title="ドラッグで並び替え">⠿</span>
         <span class="pcard-name"></span>
-        <span class="pcard-mc" hidden>MC</span>
+        <span class="pcard-mc" hidden>席亭</span>
         <span class="pcard-hand"></span>
       </div>
       <div class="pcard-flip">
@@ -477,7 +482,7 @@ export function startHostView() {
         <span class="pcard-badge"></span>
       </div>
       <div class="pcard-btns">
-        <button type="button" class="btn small primary b-call">ステージへ</button>
+        <button type="button" class="btn small b-call">ステージへ</button>
         <button type="button" class="btn small primary b-open">オープン（MC側で）</button>
         <button type="button" class="btn small b-dismiss">下げる</button>
         <button type="button" class="btn small danger b-kick">退室させる</button>
@@ -490,6 +495,7 @@ export function startHostView() {
       hand: el.querySelector('.pcard-hand'),
       canvas: el.querySelector('canvas'),
       badge: el.querySelector('.pcard-badge'),
+      lantern: el.querySelector('.pcard-lantern'),
       call: el.querySelector('.b-call'),
       open: el.querySelector('.b-open'),
       dismiss: el.querySelector('.b-dismiss'),
@@ -544,9 +550,11 @@ export function startHostView() {
       c.el.classList.toggle('is-host', isHost);
       c.name.textContent = p.name + (p.connected ? '' : '（切断中）');
       c.mc.hidden = !isHost;
-      c.hand.textContent = p.hand.raised ? `✋ ${p.hand.order}` : '';
+      c.hand.textContent = p.hand.raised ? `挙手 ${circled(p.hand.order)}` : '';
+      c.hand.hidden = !p.hand.raised;
       c.badge.textContent = st === 'onstage' ? (opened ? '発表中（オープン）' : '発表中') : STATUS_LABEL[st];
       c.badge.className = 'pcard-badge st-' + st;
+      c.lantern.className = 'pcard-lantern st-' + st; // 提灯の点灯色で状態を示す
       c.call.hidden = onStage;
       // MC自身のカードには「退室させる」「MCを渡す」を出さない
       c.kick.hidden = onStage || isHost;
@@ -565,7 +573,7 @@ export function startHostView() {
     $('h-empty').hidden = s.players.some((p) => !p.isHost);
   }
 
-  // ---- 並び替え（カード左上の ⠿ をドラッグ。Pointer Events でマウス・ペン・タッチ共通） ----
+  // ---- 並び替え（カード左端のつまみをドラッグ。Pointer Events でマウス・ペン・タッチ共通） ----
   let drag = null;           // { id, el, pointerId, sx, sy, x, y, target, raf }
   let pendingRender = false; // ドラッグ中に保留した再描画
   const indicator = document.createElement('div');
@@ -682,15 +690,18 @@ export function startHostView() {
     }
     for (const p of raised) {
       const li = document.createElement('li');
+      const no = document.createElement('span');
+      no.className = 'hand-no';
+      no.textContent = circled(p.hand.order);
       const nm = document.createElement('span');
       nm.className = 'hand-name';
       nm.textContent = p.name;
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'btn small primary';
+      btn.className = 'btn small';
       btn.textContent = 'ステージへ';
       btn.addEventListener('click', () => state.callToStage(p.id));
-      li.append(nm, btn);
+      li.append(no, nm, btn);
       ol.appendChild(li);
     }
   }
@@ -996,9 +1007,9 @@ export function startHostView() {
       play.addEventListener('click', () => fireSE(m.id));
       const ren = document.createElement('button');
       ren.type = 'button';
-      ren.className = 'mini';
+      ren.className = 'btn small subtle se-mini';
       ren.title = '名前を変更';
-      ren.textContent = '✎';
+      ren.textContent = '名前';
       ren.addEventListener('click', async () => {
         const n = await promptDialog('ボタンの名前', { defaultValue: m.name });
         if (n && n.trim()) {
@@ -1008,9 +1019,9 @@ export function startHostView() {
       });
       const del = document.createElement('button');
       del.type = 'button';
-      del.className = 'mini';
+      del.className = 'btn small danger se-mini';
       del.title = '削除';
-      del.textContent = '×';
+      del.textContent = '削除';
       del.addEventListener('click', () => removeCustom(m));
       wrap.append(play, ren, del);
       box.appendChild(wrap);
@@ -1050,7 +1061,8 @@ export function startHostView() {
   vol.addEventListener('input', () => se.setVolume(vol.value / 100));
   const muteBtn = $('h-se-mute');
   const renderMute = () => {
-    muteBtn.textContent = se.isMuted() ? '🔇 ミュート中' : '🔊';
+    muteBtn.innerHTML = se.isMuted() ? ICON_MUTED + '<span>ミュート中</span>' : ICON_SPEAKER;
+    muteBtn.setAttribute('aria-pressed', se.isMuted() ? 'true' : 'false');
     muteBtn.classList.toggle('on', se.isMuted());
   };
   muteBtn.addEventListener('click', () => {
