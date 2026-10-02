@@ -514,6 +514,7 @@ body.chroma .s-pl .mc-tag::before,
 body.chroma .s-pl .s-hand::before,
 body.chroma .lt-cord,
 body.chroma .s-card::after { display: none; }
+body.chroma .zb-side { filter: none; }
 body.chroma .s-pl.st-onstage .s-pl-lantern { filter: none; }
 /* 半透明だと緑が透けて抜けてしまうので、クロマキー時は不透明のまま暗くする */
 body.chroma .s-pl.st-idle .s-pl-lantern,
@@ -982,65 +983,113 @@ body.chroma .s-pl.st-off { filter: brightness(.6); }
 }
 .face.content::after { border: .13vw solid #1a1714; }
 .face.content .flip-canvas { position: relative; height: 100%; }
-/* 裏：紺地に家紋風の白い円 */
+/* 裏：高座の座布団（紫の布地・ふっくらした張り・側面の厚み・四隅の房・中央のとじ糸）
+   房と側面はカードの外へはみ出すので overflow は切らない。
+   いずれも .face.cover の子なので、めくると一緒に裏返って隠れる */
 .face.cover {
+  --zb-r: calc(var(--cw) * .045);
+  overflow: visible;
+  box-shadow: none;
+  border-radius: var(--zb-r);
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--kon);
-  background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, .025) 0 .15vw, transparent .15vw .4vw);
 }
-.face.cover::after { border: .13vw solid #10172a; }
-.cover-text {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: calc(var(--cw) * .03);
+.face.cover::after { display: none; }
+/* 側面（厚み）：上面より少し下まで伸びた暗い帯。下辺・左右はわずかに外へ膨らむ */
+.zb-side {
+  position: absolute;
+  left: 0;
+  top: 0;
   width: 100%;
+  height: calc(100% * 322 / 300);
+  overflow: visible;
+  filter: drop-shadow(0 .9vh 1.1vh rgba(40, 16, 6, .5));
 }
-.cover-mon {
-  width: calc(var(--cw) * .44);
-  aspect-ratio: 1;
-  border-radius: 50%;
+/* 上面：中央が明るく縁へ暗くなる布地＋ごく薄い綾織り */
+.zb-top {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--zb-r);
+  background-color: #4f2c72;
+  background-image:
+    radial-gradient(ellipse 46% 40% at 50% 42%, rgba(235, 205, 255, .1), rgba(235, 205, 255, 0) 100%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-45deg, rgba(20, 0, 30, .05) 0 1px, transparent 1px 4px),
+    radial-gradient(ellipse 72% 70% at 50% 44%, #67398f 0%, #5a3282 40%, #4a2a6b 72%, #371d52 100%);
+  box-shadow:
+    inset 0 calc(var(--cw) * .008) calc(var(--cw) * .014) rgba(240, 215, 255, .14),
+    inset 0 calc(var(--cw) * -.022) calc(var(--cw) * .04) rgba(22, 6, 36, .6),
+    inset 0 0 calc(var(--cw) * .035) calc(var(--cw) * .004) rgba(22, 6, 36, .45);
+}
+/* 四隅の房：付け根（結び目）が角の丸みの上に来るよう配置し、外向きに広がる */
+.zb-fusa {
+  position: absolute;
+  z-index: 1;
+  width: calc(var(--cw) * .11);
+  height: calc(var(--cw) * .11);
+  --zb-k: calc(var(--zb-r) * .29 - var(--cw) * .11 * .75);
+}
+.zb-fusa svg { display: block; width: 100%; height: 100%; overflow: visible; }
+/* 上側の房は看板に掛からないよう少し横へ寝かせる */
+.zb-fusa.tl svg, .zb-fusa.tr svg { transform: rotate(-22deg); transform-origin: 75% 75%; }
+.zb-fusa.tl { left: var(--zb-k); top: var(--zb-k); }
+.zb-fusa.tr { right: var(--zb-k); top: var(--zb-k); transform: scaleX(-1); }
+.zb-fusa.bl { left: var(--zb-k); bottom: var(--zb-k); transform: scaleY(-1); }
+.zb-fusa.br { right: var(--zb-k); bottom: var(--zb-k); transform: scale(-1, -1); }
+.cover-text {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: calc(var(--cw) * .012);
-  background: #f6f1e6;
-  box-shadow: inset 0 0 0 calc(var(--cw) * .01) #f6f1e6, inset 0 0 0 calc(var(--cw) * .014) var(--kon);
+  width: 100%;
+  margin-top: calc(var(--cw) * -.03);
+}
+/* 中央のとじ糸（糸に引かれて布が少しくぼむ） */
+.zb-toji {
+  width: calc(var(--cw) * .085);
+  height: calc(var(--cw) * .085);
+  margin-bottom: calc(var(--cw) * .012);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(25, 8, 40, .4) 0%, rgba(25, 8, 40, .15) 45%, rgba(25, 8, 40, 0) 70%);
 }
 .cover-name {
-  max-width: 82%;
+  max-width: 84%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--fude);
   font-weight: 400;
-  font-size: min(calc(var(--cw) * .1), calc(var(--cw) * .34 / var(--nlen, 3)));
+  font-size: min(calc(var(--cw) * .12), calc(var(--cw) * .66 / var(--nlen, 3)));
   line-height: 1.2;
-  color: var(--kon);
+  color: #f6efdc;
+  text-shadow: 0 calc(var(--cw) * .004) calc(var(--cw) * .008) rgba(30, 10, 48, .75), 0 0 calc(var(--cw) * .02) rgba(30, 10, 48, .4);
 }
 .cover-sub {
   font-family: var(--fude);
-  font-size: calc(var(--cw) * .05);
+  font-size: calc(var(--cw) * .045);
   line-height: 1.2;
-  color: #f6f1e6;
+  color: #e9dcc0;
   letter-spacing: .08em;
+  text-shadow: 0 calc(var(--cw) * .003) calc(var(--cw) * .006) rgba(30, 10, 48, .7);
 }
-.cover-mon .mc-tag,
+.cover-text .mc-tag,
 .mk-paper .mc-tag {
   background: transparent;
   border-radius: 0;
 }
-.cover-mon .mc-tag {
+.cover-text .mc-tag {
+  margin-top: calc(var(--cw) * .006);
   font-family: var(--mincho);
   font-size: calc(var(--cw) * .026);
   font-weight: 800;
   letter-spacing: .1em;
-  padding: .1em .5em;
-  color: var(--shu);
-  border: .1em solid var(--shu);
+  padding: .12em .6em;
+  color: #fff6e6;
+  background: var(--shu);
+  box-shadow: 0 calc(var(--cw) * .003) calc(var(--cw) * .006) rgba(30, 10, 48, .5);
 }
 
 /* めくり：カードの右脇に立てた白い縦長の札。オープンで名前の紙がめくれ下りる */

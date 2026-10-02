@@ -137,13 +137,48 @@ export function startStageView({ code, chroma, mute }) {
   });
 
   // ---- 中央のフリップ ----
+  // 裏面は高座の座布団。側面（厚み）・四隅の房・中央のとじ糸はインラインSVG
+  const ZABUTON_SIDE = `<svg class="zb-side" viewBox="0 0 400 322" preserveAspectRatio="none" aria-hidden="true">
+    <defs><linearGradient id="zb-side-g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a1f55"/><stop offset=".9" stop-color="#2f1847"/><stop offset="1" stop-color="#1f0f31"/>
+    </linearGradient></defs>
+    <path fill="url(#zb-side-g)" d="M20 0H380Q400 0 400 20Q401.6 160 399 296Q398 313 378 315Q200 324 22 315Q2 313 1 296Q-1.6 160 0 20Q0 0 20 0Z"/>
+  </svg>`;
+  // 房の糸：結び目から短く束ねたあと、外へ扇状にほどける（角度・長さを少しずつ変える）
+  const FUSA_THREADS = [[198, 19.5], [207, 21.5], [216, 20.5], [225, 22.5], [234, 20.5], [243, 21.5], [252, 19.5]].map(([deg, len], i) => {
+    const r = (deg * Math.PI) / 180;
+    const o = (i - 3) * 0.35; // 束ねた部分での糸の並び
+    const sx = 24.5 + o, sy = 24.5 - o;
+    const f = (n) => n.toFixed(1);
+    const ex = 30 + Math.cos(r) * len, ey = 30 + Math.sin(r) * len;
+    const cx = 30 + Math.cos(r) * len * 0.55 + 1.2, cy = 30 + Math.sin(r) * len * 0.55 + 1.2;
+    return `<path d="M${f(29.5 + o * 0.4)} ${f(29.5 - o * 0.4)}L${f(sx)} ${f(sy)}Q${f(cx)} ${f(cy)} ${f(ex)} ${f(ey)}"/>`;
+  }).join('');
+  const FUSA_SVG = `<svg viewBox="0 0 40 40" aria-hidden="true">
+    <g fill="none" stroke-linecap="round">
+      <g stroke="#7d6a44" stroke-width="2.7">${FUSA_THREADS}</g>
+      <g stroke="#efe6cf" stroke-width="1.75">${FUSA_THREADS}</g>
+    </g>
+    <path d="M23.4 27.8L27.8 23.4" stroke="#6b3c14" stroke-width="3" stroke-linecap="round"/><path d="M23.4 27.8L27.8 23.4" stroke="#b07a3a" stroke-width=".8" stroke-linecap="round"/>
+    <circle cx="30" cy="30" r="3.4" fill="#5e3412"/><circle cx="29.2" cy="29.2" r="1.3" fill="#a8763a"/>
+  </svg>`;
+  const ZABUTON_FUSA = ['tl', 'tr', 'bl', 'br'].map((k) => `<i class="zb-fusa ${k}">${FUSA_SVG}</i>`).join('');
+  const ZABUTON_TOJI = `<svg class="zb-toji" viewBox="0 0 40 40" aria-hidden="true">
+    <g stroke-linecap="round" fill="none">
+      <path d="M20 9V31M9 20H31M12.5 12.5L27.5 27.5M27.5 12.5L12.5 27.5" stroke="#2a1440" stroke-width="3.4" opacity=".55"/>
+      <path d="M20 9V31M9 20H31" stroke="#efe6cf" stroke-width="2.2"/>
+      <path d="M12.5 12.5L27.5 27.5M27.5 12.5L12.5 27.5" stroke="#efe6cf" stroke-width="1.8"/>
+    </g>
+    <circle cx="20" cy="20" r="3.2" fill="#d9ccab"/><circle cx="20" cy="20" r="1.4" fill="#8a7650"/>
+  </svg>`;
+
   function makeCard(p, opened) {
     const el = document.createElement('div');
     el.className = 's-card entering' + (opened ? ' opened' : '');
     el.innerHTML = `
       <div class="s-flip">
         <div class="flipper">
-          <div class="face cover"><div class="cover-text"><div class="cover-mon"><b class="cover-name"></b><small class="mc-tag" hidden>席亭</small></div><span class="cover-sub">さんの回答</span></div></div>
+          <div class="face cover">${ZABUTON_SIDE}<div class="zb-top"></div>${ZABUTON_FUSA}<div class="cover-text">${ZABUTON_TOJI}<b class="cover-name"></b><span class="cover-sub">さんの回答</span><small class="mc-tag" hidden>席亭</small></div></div>
           <div class="face content"><canvas class="flip-canvas"></canvas></div>
         </div>
       </div>
