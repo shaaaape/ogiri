@@ -1,11 +1,66 @@
-// ステージ画面（OBS取り込み用）
-// 中央：MCが呼んだ1人のフリップだけを大きく表示。下部：回答者のステータス一列
+// ステージ画面（OBS取り込み用）。見た目は「寄席」の舞台
+// 中央（高座）：MCが呼んだ1人のフリップだけを大きく表示し、右脇の「めくり」に名前
+// 上部：回答者のステータスを幕の下に並ぶ提灯で表示
 import { Client } from '../net.js';
 import { drawFlip } from '../flip.js';
 import { playerStatus, STATUS_LABEL } from '../state.js';
 import * as se from '../se.js';
 
 const $ = (id) => document.getElementById(id);
+
+// 名前の文字数（サロゲートペアも1文字）
+const nameLen = (s) => [...String(s || '')].length;
+
+// 提灯に書く名前（最大6文字、超えたら5文字＋…）
+function lanternName(s) {
+  const chars = [...String(s || '')];
+  return chars.length > 6 ? chars.slice(0, 5).join('') + '…' : chars.join('');
+}
+
+// 挙手の順番を丸数字に（①〜⑳、それ以上はそのまま）
+function circled(n) {
+  return n >= 1 && n <= 20 ? String.fromCharCode(0x2460 + n - 1) : String(n);
+}
+
+// 提灯の SVG（グラデーションの id は提灯ごとに別にする。色は CSS 変数 --lt-* で切り替え）
+let lanternSeq = 0;
+function lanternSvg() {
+  const id = 'lt' + (++lanternSeq);
+  // 骨（横方向の細い線）。胴は楕円 cx=30 cy=50 rx=26 ry=38
+  let ribs = '';
+  for (let y = 21; y <= 79; y += 5.8) {
+    const w = 26 * Math.sqrt(Math.max(0, 1 - ((y - 50) / 38) ** 2));
+    const bow = 1.6 + (y - 50) / 38; // 上は上向き、下は下向きに少し反らせて丸みを出す
+    ribs += `<path d="M${(30 - w).toFixed(1)} ${y.toFixed(1)} Q30 ${(y + bow * 1.6).toFixed(1)} ${(30 + w).toFixed(1)} ${y.toFixed(1)}"/>`;
+  }
+  return `
+    <svg class="lt-svg" viewBox="0 0 60 104" aria-hidden="true">
+      <defs>
+        <radialGradient id="${id}b" cx="50%" cy="50%" r="55%">
+          <stop offset="0" class="lt-s-core"/>
+          <stop offset=".6" class="lt-s-body"/>
+          <stop offset="1" class="lt-s-edge"/>
+        </radialGradient>
+        <linearGradient id="${id}s" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stop-color="#000" stop-opacity=".45"/>
+          <stop offset=".22" stop-color="#000" stop-opacity="0"/>
+          <stop offset=".78" stop-color="#000" stop-opacity="0"/>
+          <stop offset="1" stop-color="#000" stop-opacity=".45"/>
+        </linearGradient>
+      </defs>
+      <line class="lt-cord" x1="30" y1="0" x2="30" y2="9"/>
+      <ellipse class="lt-body" cx="30" cy="50" rx="26" ry="38" fill="url(#${id}b)"/>
+      <ellipse cx="30" cy="50" rx="26" ry="38" fill="url(#${id}s)"/>
+      <g class="lt-ribs">${ribs}</g>
+      <rect class="lt-cap" x="16" y="8" width="28" height="8" rx="1"/>
+      <rect class="lt-cap-line" x="16" y="13.4" width="28" height="1"/>
+      <rect class="lt-cap" x="16" y="84" width="28" height="8" rx="1"/>
+      <rect class="lt-cap-line" x="16" y="86" width="28" height="1"/>
+      <circle class="lt-knot" cx="30" cy="94" r="2"/>
+      <path class="lt-fringe" d="M27 95 L33 95 L35 104 L25 104 Z"/>
+      <path class="lt-fringe-line" d="M28 97 L27.2 103.6 M30 97 L30 103.8 M32 97 L32.8 103.6"/>
+    </svg>`;
+}
 
 function toArrayBuffer(d) {
   if (d instanceof ArrayBuffer) return d;
@@ -88,13 +143,14 @@ export function startStageView({ code, chroma, mute }) {
     el.innerHTML = `
       <div class="s-flip">
         <div class="flipper">
-          <div class="face cover"><div class="cover-text"><div class="cover-row"><b class="cover-name"></b><small class="mc-tag" hidden>MC</small></div><span>さんの回答</span></div></div>
+          <div class="face cover"><div class="cover-text"><div class="cover-mon"><b class="cover-name"></b><small class="mc-tag" hidden>席亭</small></div><span class="cover-sub">さんの回答</span></div></div>
           <div class="face content"><canvas class="flip-canvas"></canvas></div>
         </div>
       </div>
-      <div class="s-name"><span class="nm"></span><small class="mc-tag" hidden>MC</small></div>`;
+      <div class="s-name"><div class="mk-paper blank"></div><div class="mk-paper named"><span class="nm"></span><small class="mc-tag" hidden>席亭</small></div></div>`;
     el.querySelector('.cover-name').textContent = p.name;
     el.querySelector('.nm').textContent = p.name;
+    el.style.setProperty('--nlen', Math.max(1, nameLen(p.name)));
     for (const t of el.querySelectorAll('.mc-tag')) t.hidden = !p.isHost;
     el.addEventListener('animationend', (e) => {
       if (e.animationName === 's-enter') el.classList.remove('entering');
@@ -146,37 +202,43 @@ export function startStageView({ code, chroma, mute }) {
     current.el.classList.toggle('opened', !!st.opened);
     current.coverName.textContent = p.name;
     current.name.textContent = p.name;
+    current.el.style.setProperty('--nlen', Math.max(1, nameLen(p.name)));
     if (force || current.rev !== p.rev) {
       current.rev = p.rev;
       drawFlip(current.canvas, p.flip);
     }
   }
 
-  // 中央カードの大きさ（4:3、名前の分を引いて収まる最大。高さは約58vhが目安）
+  // 中央カードの大きさ（4:3、右脇のめくり札の分を左右に空けて収まる最大）
   function layout() {
     const vw = window.innerWidth / 100;
     const W = main.clientWidth;
     const H = main.clientHeight;
-    const nameH = 5 * vw;
-    let cw = Math.min(W * 0.9, (H - nameH) * 4 / 3, window.innerHeight * 0.62 * 4 / 3);
+    const sideW = 9 * vw; // めくり札（約6vw）＋すき間
+    let cw = Math.min(W - sideW * 2, H * 4 / 3, window.innerHeight * 0.62 * 4 / 3);
     cw = Math.max(120, Math.floor(cw));
     const changed = main.style.getPropertyValue('--cw') !== cw + 'px';
     main.style.setProperty('--cw', cw + 'px');
     return changed;
   }
 
-  // ---- 下部のステータス一列 ----
+  // ---- 上部の提灯の列（ステータス一列） ----
+  // 要素の中身：提灯（SVG＋胴の名前）、左に「席亭」札、右に「挙手」札、下にステータスの木札
   function makeItem() {
     const el = document.createElement('div');
     el.className = 's-pl';
     el.innerHTML = `
-      <span class="s-pl-name"><span class="nm"></span><small class="mc-tag" hidden>MC</small></span>
-      <span class="s-pl-st"></span>
-      <span class="s-hand">✋<b></b></span>`;
+      <div class="s-pl-lantern">
+        ${lanternSvg()}
+        <span class="s-pl-name"><span class="nm"></span></span>
+        <small class="mc-tag" hidden>席亭</small>
+        <span class="s-hand">挙手<b></b></span>
+      </div>
+      <span class="s-pl-st"></span>`;
     return {
       el,
       name: el.querySelector('.s-pl-name .nm'),
-      mc: el.querySelector('.s-pl-name .mc-tag'),
+      mc: el.querySelector('.s-pl-lantern .mc-tag'),
       st: el.querySelector('.s-pl-st'),
       handNum: el.querySelector('.s-hand b'),
     };
@@ -208,10 +270,14 @@ export function startStageView({ code, chroma, mute }) {
       if (strip.children[i] !== it.el) strip.insertBefore(it.el, strip.children[i] || null);
       const st = playerStatus(p, s.stage);
       it.el.className = 's-pl st-' + st + (p.hand.raised ? ' raised' : '') + (p.isHost ? ' is-host' : '');
-      it.name.textContent = p.name;
+      const shown = lanternName(p.name);
+      it.name.textContent = shown;
+      // 4文字以上は2行に分けて書くので、1行あたりの文字数で大きさを決める
+      const n = Math.max(1, nameLen(shown));
+      it.name.style.setProperty('--nlen', n <= 3 ? n : Math.ceil(n / 2));
       it.mc.hidden = !p.isHost;
       it.st.textContent = STATUS_LABEL[st];
-      it.handNum.textContent = p.hand.raised ? String(p.hand.order) : '';
+      it.handNum.textContent = p.hand.raised ? circled(p.hand.order) : '';
     });
     strip.style.setProperty('--n', Math.max(1, players.length));
     if (reordered) slideFrom(before);

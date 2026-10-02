@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#14161b">
   <title>オンライン大喜利</title>
+  <!-- ステージ画面（寄席）用のフォント。.stage の中だけで使う -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reggae+One&family=Shippori+Mincho+B1:wght@500;700;800&display=swap">
   <link rel="stylesheet" href="css/style.css">
   <!-- PeerJS（グローバル Peer を使うので module より先に通常読み込み） -->
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
@@ -217,12 +221,25 @@
   <!-- ===== ステージ画面 ===== -->
   <section id="view-stage" class="view" hidden>
     <div id="s-root" class="stage">
+      <!-- 背景（寄席の舞台）。将来 img/stage-bg.jpg に差し替えるときはこの要素だけ変える。?chroma=1 では出さない -->
+      <div class="stage-bg" aria-hidden="true">
+        <div class="sb-wall"></div>
+        <div class="sb-light"></div>
+        <div class="sb-floor"></div>
+        <div class="sb-sode left"></div>
+        <div class="sb-sode right"></div>
+        <div class="sb-maku"></div>
+      </div>
+      <!-- 上部：参加者の提灯の列（幕のすぐ下） -->
+      <div id="s-strip" class="s-strip"></div>
+      <!-- お題の看板 -->
       <div class="stage-top">
         <div id="s-topic" class="s-topic"><span></span></div>
-        <div id="s-timer" class="s-timer" hidden></div>
       </div>
+      <!-- タイマー（吊り下げた木札） -->
+      <div id="s-timer" class="s-timer" hidden></div>
+      <!-- 高座：発表中の1枚とめくり -->
       <div id="s-main" class="s-main"></div>
-      <div id="s-strip" class="s-strip"></div>
       <div id="s-status" class="s-status">接続しています…</div>
       <div id="s-audio-hint" class="s-audio-hint" hidden>クリックでSEを有効化</div>
     </div>
