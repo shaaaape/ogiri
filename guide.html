@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>オンライン大喜利 使い方</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Reggae+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4 portrait; margin: 0; }
+  :root {
+    --sumi: #1a1511; --usuzumi: #5a4f45; --kogecha: #4a3323; --shiraki: #f6eedb;
+    --kifuda: #ecdcb8; --kinari: #efe6cf; --shu: #b3341f; --urushi: #171412; --kin: #c9a24a;
+    --moegi: #2f7a4f; --kaki: #c75a2c; --murasaki: #4a2a6b;
+    --fude: 'Reggae One', 'Yu Mincho', serif;
+    --body: 'Zen Kaku Gothic New', 'Yu Gothic', 'Meiryo', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { background: #8d8272; }
+  body { margin: 0; font-family: var(--body); color: var(--sumi); font-size: 8.2pt; line-height: 1.46; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sheet { width: 210mm; height: 297mm; margin: 0 auto; background: var(--shiraki); display: flex; flex-direction: column; overflow: hidden; }
+
+  /* 定式幕の帯と題字 */
+  .maku { height: 8mm; flex: none; background: repeating-linear-gradient(90deg, #1c1a19 0 9mm, var(--moegi) 9mm 18mm, var(--kaki) 18mm 27mm); border-bottom: 1mm solid var(--urushi); }
+  header { flex: none; display: flex; align-items: center; gap: 5mm; padding: 2.2mm 9mm 2mm; border-bottom: .4mm solid var(--kogecha); }
+  h1 { margin: 0; font-family: var(--fude); font-weight: 400; font-size: 16pt; letter-spacing: .04em; color: var(--kinari); background: var(--urushi); border: .5mm solid var(--kin); outline: .5mm solid var(--urushi); padding: 1mm 5mm 1.4mm; white-space: nowrap; }
+  .lead { font-size: 8.6pt; }
+  .lead b { font-size: 10.5pt; font-family: Consolas, 'Courier New', monospace; letter-spacing: .02em; }
+  .lead small { display: block; color: var(--usuzumi); font-size: 7.8pt; }
+
+  main { flex: 1; min-height: 0; padding: 2.6mm 8mm 0; display: grid; grid-template-columns: 1.12fr 1fr; grid-template-rows: auto 1fr; gap: 2.6mm 3.5mm; }
+  section { border: .35mm solid var(--kogecha); background: #fbf6e9; padding: 0 3.2mm 2.4mm; position: relative; }
+  h2 { display: inline-block; margin: 0 0 1.6mm -3.2mm; font-family: var(--fude); font-weight: 400; font-size: 10.5pt; color: var(--kinari); background: var(--urushi); padding: .3mm 4.5mm .7mm 3.2mm; letter-spacing: .06em; }
+  h2 small { font-family: var(--body); font-size: 7.6pt; font-weight: 500; margin-left: 2mm; color: var(--kin); letter-spacing: 0; }
+  h3 { margin: 1.3mm 0 .7mm; font-size: 8.2pt; font-weight: 700; color: var(--shu); border-bottom: .25mm solid var(--kaki); padding-bottom: .3mm; }
+  ol { margin: 0; padding: 0; list-style: none; counter-reset: n; }
+  ol > li { counter-increment: n; position: relative; padding-left: 5.2mm; margin-bottom: .75mm; }
+  ol > li::before { content: counter(n); position: absolute; left: 0; top: .35mm; width: 3.8mm; height: 3.8mm; border-radius: 50%; background: var(--shu); color: var(--kinari); font-size: 7.2pt; font-weight: 700; line-height: 3.8mm; text-align: center; }
+  ul { margin: 0; padding-left: 3.6mm; }
+  ul li { margin-bottom: .4mm; }
+  ul li::marker { color: var(--kaki); }
+  .k { display: inline-block; font-weight: 700; background: var(--kifuda); border: .25mm solid #a9895a; padding: 0 1.2mm; line-height: 1.38; white-space: nowrap; }
+  .k.shu { background: var(--shu); border-color: #7f2112; color: var(--kinari); }
+  code { font-family: Consolas, 'Courier New', monospace; font-size: 7.8pt; background: #efe3c4; padding: 0 1mm; border: .2mm solid #cdb98c; }
+  .note { margin-top: 1.1mm; padding: .8mm 2mm; background: #f1e6c9; border-left: 1mm solid var(--murasaki); font-size: 7.9pt; }
+  .note b { color: var(--murasaki); }
+
+  /* OBS（全幅） */
+  .obs { grid-column: 1 / -1; display: grid; grid-template-columns: 1.3fr 1fr; gap: 0 4mm; align-content: start; border-width: .6mm; border-color: var(--urushi); }
+  .obs h2 { grid-column: 1 / -1; justify-self: start; }
+  .obs h3:first-of-type { margin-top: 0; }
+  .url { margin: .8mm 0 1.2mm; padding: 1mm 2mm; background: var(--urushi); color: var(--kinari); font-family: Consolas, 'Courier New', monospace; font-size: 7.7pt; border: .3mm solid var(--kin); word-break: break-all; }
+  .url em { font-style: normal; color: #f0b25d; }
+  table { width: 100%; border-collapse: collapse; font-size: 7.8pt; }
+  th, td { border: .25mm solid #bfa878; padding: .55mm 1.3mm; vertical-align: top; text-align: left; }
+  th { width: 31%; background: #efe0bd; font-weight: 700; }
+  .set { margin: .8mm 0 0; padding: 0; list-style: none; }
+  .set li { padding-left: 4mm; position: relative; margin-bottom: .55mm; }
+  .set li::before { content: ''; position: absolute; left: .6mm; top: 1.55mm; width: 1.7mm; height: 1.7mm; background: var(--moegi); }
+  .set li.no::before { background: none; border: .35mm solid var(--shu); }
+  .ab { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; margin-top: .8mm; }
+  .ab div { border: .25mm solid #bfa878; background: #f6edd6; padding: .8mm 1.5mm; font-size: 7.8pt; }
+  .ab b.t { display: block; color: var(--shu); }
+  footer { flex: none; margin-top: 2.2mm; height: 4mm; background: repeating-linear-gradient(90deg, #1c1a19 0 9mm, var(--moegi) 9mm 18mm, var(--kaki) 18mm 27mm); border-top: .8mm solid var(--urushi); }
+
+  @media screen and (max-width: 820px) {
+    html { background: var(--shiraki); }
+    .sheet { width: auto; height: auto; overflow: visible; }
+    body { font-size: 14px; }
+    main, .obs, .ab { display: block; }
+    section { margin-bottom: 12px; }
+    header { flex-wrap: wrap; }
+    code, .url, table { font-size: 13px; }
+  }
+  @media print { html { background: none; } }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="maku"></div>
+  <header>
+    <h1>オンライン大喜利 使い方</h1>
+    <div class="lead">
+      <b>https://shaaaape.github.io/ogiri/</b>
+      <small>インストール不要。MC（席亭）・回答者・ステージ（配信画面）の3つの画面を、すべてこのURLから開きます。</small>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>MC（席亭）<small>進行役・部屋の主</small></h2>
+      <ol>
+        <li>URLを開いて <span class="k shu">部屋を作る（MC）</span>。左上に<b>部屋コード（4文字）</b>が出ます。</li>
+        <li><span class="k">参加用URLをコピー</span> を押し、Discordに貼って回答者に送ります。</li>
+        <li>お題を入力して <span class="k shu">出題</span>（リストから選ぶなら <span class="k">ランダム出題</span>）。出題の瞬間に「ドドン」が鳴り、全員のフリップ・挙手・回答履歴がリセットされます。</li>
+        <li>参加者カードの提灯と札で状態を確認します（待機中 → 記入中 → 提出済み）。挙手した人は「挙手順」に押した順で並びます。</li>
+        <li>発表させたい人の <span class="k">ステージへ</span> を押すと、配信画面の中央にその人の座布団（裏向きのフリップ）が出ます。</li>
+        <li>本人がフリップをめくって発表。終わったら <span class="k">下げる</span>。回答は「回答履歴」に残り、その人は次の回答を書けます。5〜6をくり返し、区切りで次のお題へ。</li>
+      </ol>
+      <h3>覚えておくと便利</h3>
+      <ul>
+        <li><b>自分も回答</b>：「自分の回答」欄に書いて、自分のカードの「ステージへ」。</li>
+        <li><b>並び替え</b>：カード左の縦3本線をドラッグ。配信画面の提灯の順番も変わります。</li>
+        <li><b>MCの交代</b>：相手のカードの「MCを渡す」。部屋コードはそのままです。</li>
+        <li><b>本人がめくれないとき</b>：カードの「オープン（MC側で）」で代わりにめくれます。</li>
+        <li><b>タイマー・SE</b>：残り秒も効果音も、全員の画面に出ます。</li>
+      </ul>
+      <div class="note"><b>注意</b>　MCのタブを閉じると部屋が消えます。再読み込みは同じ部屋コードで復帰でき、回答者は自動でつながり直します。</div>
+    </section>
+
+    <section>
+      <h2>回答者<small>スマホでもPCでも</small></h2>
+      <ol>
+        <li>MCから届いたURLを開き、名前を入れて <span class="k shu">入室する</span>。</li>
+        <li><span class="k">手書き</span> か <span class="k">文字</span> を選んで回答を書きます。手書きは色3種・太さ3段階・消しゴム・戻す・全消し。全消ししても「戻す」で元に戻せます。</li>
+        <li>書けたら <span class="k shu">提出する</span>。直したいときは <span class="k">書き直す</span>。</li>
+        <li>発表したいときは <span class="k">挙手</span>（もう一度押すと取り下げ）。</li>
+        <li>MCに呼ばれると「あなたの番です！」と出ます。喋るタイミングに合わせて <span class="k shu">フリップをオープン！</span></li>
+        <li>MCが下げるとフリップが白紙に戻るので、同じお題で次の回答を書けます。</li>
+      </ol>
+      <h3>困ったとき</h3>
+      <ul>
+        <li><b>開けない・動かない</b>：LINEやDiscordの中で開いたページでは動かないことがあります。メニューの「ブラウザで開く」でChromeかSafariに切り替えてください。</li>
+        <li><b>「部屋が見つかりません」</b>：MCが部屋を作り直しています。新しいURLをもらってください。</li>
+        <li><b>回線が切れた</b>：3秒ごとに自動で再接続します。書いた内容は残ります。</li>
+        <li><b>音・名前</b>：右上のスピーカーで効果音を消せます。名前は横の「変更」から。</li>
+              </ul>
+      <div class="note"><b>コツ</b>　配信画面に出るのは、呼ばれて自分でオープンした回答だけです。書いている途中の内容はMCにだけ見えています。</div>
+    </section>
+
+    <section class="obs">
+      <h2>ステージ（配信画面）をOBSに映す<small>ここが一番つまずきやすいので順番どおりに</small></h2>
+      <div>
+        <h3>手順　※先にMCが部屋を作っておく（URLに部屋コードが入るため）</h3>
+        <ol>
+          <li>MC画面の上にある <span class="k">ステージURLをコピー</span> を押します。</li>
+          <li>OBSの「ソース」欄の <b>＋</b> →「<b>ブラウザ</b>」→「新規作成」に名前（例：大喜利ステージ）を入れて OK。</li>
+          <li>開いた設定画面を次のとおりにして OK。
+            <ul class="set">
+              <li><b>URL</b>：最初から入っている文字を全部消して、コピーしたURLを貼り付け</li>
+              <li><b>幅 1920 ／ 高さ 1080</b>（違うと文字が小さくなったり切れたりします）</li>
+              <li class="no">「ローカルファイル」はチェック<b>しない</b></li>
+              <li class="no">「表示されていないときにソースをシャットダウン」「シーンがアクティブになったときにブラウザの表示を更新」はどちらもチェック<b>しない</b>（シーンを切り替えるたびに接続し直すのを防ぐ）</li>
+              <li>「カスタムCSS」は触らずそのまま</li>
+            </ul>
+          </li>
+          <li>プレビューに寄席の舞台が出れば成功です。大きさが合わないときは、ソースを右クリック →「変換」→「画面に合わせる」（Ctrl＋F）。</li>
+          <li>効果音の設定を、自分のOBSに合わせて<b>どちらか1つ</b>選びます。
+            <div class="ab">
+              <div><b class="t">A　デスクトップ音声を配信に乗せている（多くはこちら）</b>MC画面の音がそのまま乗るので、二重に鳴らないようURLの最後に <code>&amp;mute=1</code> を足す。</div>
+              <div><b class="t">B　デスクトップ音声を乗せていない</b><code>&amp;mute=1</code> は付けず、「OBSで音声を制御する」にチェックして音声ミキサーで音量調整。</div>
+            </div>
+          </li>
+        </ol>
+        <div class="url">https://shaaaape.github.io/ogiri/?room=<em>AB7K</em>&amp;stage=1<em>&amp;mute=1</em>　← Aの場合の例（AB7Kは部屋コード）</div>
+      </div>
+      <div>
+        <h3>つまずきポイント</h3>
+        <table>
+          <tr><th>「部屋が見つかりません」と出る</th><td>部屋コードが変わっています。「ステージURLをコピー」し直し、ソースをダブルクリックしてURLを貼り替え。</td></tr>
+          <tr><th>真っ黒・固まった</th><td>ソースをダブルクリック → 一番下の「現在のページのキャッシュを更新」。</td></tr>
+          <tr><th>効果音が二重に聞こえる</th><td>URLの最後に <code>&amp;mute=1</code> を足す（手順5のA）。</td></tr>
+          <tr><th>効果音が配信に乗らない</th><td><code>&amp;mute=1</code> を外し、「OBSで音声を制御する」にチェック（手順5のB）。</td></tr>
+          <tr><th>文字が小さい・端が切れる</th><td>幅1920・高さ1080になっているか確認し、「画面に合わせる」。</td></tr>
+          <tr><th>参加者の表示位置</th><td>画面<b>上部の提灯</b>です。Discordのオーバーレイは上側に置き、MC画面の並び替えで順番を揃えます。</td></tr>
+          <tr><th>MCを交代した</th><td>部屋コードが同じなら何もしなくて大丈夫。数秒で自動的につながり直ります。</td></tr>
+          <tr><th>背景を抜いて重ねたい</th><td>URLの最後に <code>&amp;chroma=1</code>。ソースを右クリック →「フィルタ」→「クロマキー」（緑）。</td></tr>
+        </table>
+        <div class="note"><b>確認</b>　配信前に一度、自分をステージへ呼んで、OBSでフリップがめくれるか・音が1回だけ鳴るかを試すと安心です。</div>
+      </div>
+    </section>
+  </main>
+  <footer></footer>
+</div>
+</body>
+</html>
