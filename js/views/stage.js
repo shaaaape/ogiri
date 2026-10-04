@@ -81,6 +81,7 @@ export function startStageView({ code, chroma, mute }) {
       connected: '',
       retrying: '再接続中…',
       notfound: '部屋 ' + code + ' が見つかりません（再試行中…）',
+      blocked: '部屋 ' + code + ' のMCと直接つながりません（再試行中…）',
     };
     let text = map[lastStatus] == null ? '' : map[lastStatus];
     if (changingTo != null) text = `MC交代中…（${changingTo}さんへ）`;

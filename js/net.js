@@ -1,11 +1,16 @@
 // PeerJS 接続（ホスト／クライアント両方）
 // Peer はCDNで読み込んだグローバルを使う
 
-const ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+// STUN：お互いの外向きアドレスを調べて直接つなぐ（多くの家庭用回線はこれでつながる）
+const STUN_SERVERS = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+  { urls: 'stun:stun.cloudflare.com:3478' },
 ];
+// TURN：直接つながらない回線どうしを中継するサーバー。
+// 以前使っていた無料の openrelay（固定の共通パスワード）は廃止されて使えなくなったため外した。
+// 中継が必要になったら、ここに { urls, username, credential } を追加する。
+const TURN_SERVERS = [];
+const ICE_SERVERS = [...STUN_SERVERS, ...TURN_SERVERS];
 const PEER_OPTS = { config: { iceServers: ICE_SERVERS }, debug: 0 };
 
 export const ID_PREFIX = 'ogiri-';
@@ -105,7 +110,8 @@ export function startHost(initialCode, h, { reuse = false, retries = 3 } = {}) {
 }
 
 // ---- クライアント（参加者・ステージ） ----
-// h: { onOpen(), onData(msg), onStatus('connecting'|'connected'|'retrying'|'notfound') }
+// h: { onOpen(), onData(msg), onStatus('connecting'|'connected'|'retrying'|'notfound'|'blocked') }
+//   notfound: その部屋コードのMCがいない／blocked: MCはいるが回線の相性で直接つながらない
 export class Client {
   constructor(code, h) {
     this.hostId = ID_PREFIX + code;
@@ -218,8 +224,9 @@ export class Client {
     clearTimeout(this.openTimer);
     this.openTimer = setTimeout(() => {
       if (c === this.conn && !c.open) {
+        // 部屋（MC）は見つかったのに、時間内にデータ接続が開かなかった
         this._dropConn();
-        this.h.onStatus(this.everConnected ? 'retrying' : 'notfound');
+        this.h.onStatus(this.everConnected ? 'retrying' : 'blocked');
         this._retry();
       }
     }, 12000);
@@ -238,7 +245,7 @@ export class Client {
     const lost = () => {
       if (c !== this.conn || this.stopped) return;
       this.conn = null;
-      this.h.onStatus(this.everConnected ? 'retrying' : 'notfound');
+      this.h.onStatus(this.everConnected ? 'retrying' : 'blocked');
       this._retry();
     };
     c.on('close', lost);

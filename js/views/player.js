@@ -87,6 +87,7 @@ export function startPlayerView({ code, name, clientId, onExit }) {
       connected: ['接続中', 'ok'],
       retrying: ['再接続中…', 'warn'],
       notfound: ['部屋が見つかりません（再試行中…）', 'ng'],
+      blocked: ['MCと直接つながりません。Wi-Fiとモバイル回線を切り替えてみてください（再試行中…）', 'ng'],
     };
     const [text, cls] = map[st] || map.connecting;
     el.textContent = text;
