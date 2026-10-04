@@ -7,6 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Reggae+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<script>
+  // ?print=1 で、画面幅が狭くても紙（A4）のレイアウトで表示する（確認用）
+  if (/[?&]print=1/.test(location.search)) document.documentElement.classList.add('paper');
+</script>
 <style>
   @page { size: A4 portrait; margin: 0; }
   :root {
@@ -15,161 +19,397 @@
     --moegi: #2f7a4f; --kaki: #c75a2c; --murasaki: #4a2a6b;
     --fude: 'Reggae One', 'Yu Mincho', serif;
     --body: 'Zen Kaku Gothic New', 'Yu Gothic', 'Meiryo', sans-serif;
+    --mono: Consolas, 'Courier New', monospace;
+    /* 定式幕（黒・萌葱・柿）。PDFでも確実に出るよう SVG で描く */
+    --maku: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='27' height='10' preserveAspectRatio='none'%3E%3Crect width='9' height='10' fill='%231c1a19'/%3E%3Crect x='9' width='9' height='10' fill='%232f7a4f'/%3E%3Crect x='18' width='9' height='10' fill='%23c75a2c'/%3E%3C/svg%3E") 0 0 / 27mm 100% repeat-x;
   }
   * { box-sizing: border-box; }
   html { background: #8d8272; }
-  body { margin: 0; font-family: var(--body); color: var(--sumi); font-size: 8.2pt; line-height: 1.46; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .sheet { width: 210mm; height: 297mm; margin: 0 auto; background: var(--shiraki); display: flex; flex-direction: column; overflow: hidden; }
+  body { margin: 0; font-family: var(--body); color: var(--sumi); font-size: 10pt; line-height: 1.55; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* 画面で見たときの目次（印刷しない） */
+  .nav { position: sticky; top: 0; z-index: 10; display: flex; justify-content: center; gap: 8px; padding: 8px; background: rgba(23, 20, 18, .92); border-bottom: 2px solid var(--kin); }
+  .nav a { font-family: var(--fude); color: var(--kinari); text-decoration: none; font-size: 15px; padding: 3px 14px; border: 1px solid var(--kin); background: var(--urushi); }
+  .nav a:hover { background: var(--shu); }
+
+  .sheet { width: 210mm; height: 297mm; margin: 10mm auto; background: var(--shiraki); display: flex; flex-direction: column; overflow: hidden; break-after: page; position: relative; box-shadow: 0 2mm 6mm rgba(0, 0, 0, .35); scroll-margin-top: 50px; }
+  .sheet:last-of-type { break-after: auto; }
 
   /* 定式幕の帯と題字 */
-  .maku { height: 8mm; flex: none; background: repeating-linear-gradient(90deg, #1c1a19 0 9mm, var(--moegi) 9mm 18mm, var(--kaki) 18mm 27mm); border-bottom: 1mm solid var(--urushi); }
-  header { flex: none; display: flex; align-items: center; gap: 5mm; padding: 2.2mm 9mm 2mm; border-bottom: .4mm solid var(--kogecha); }
-  h1 { margin: 0; font-family: var(--fude); font-weight: 400; font-size: 16pt; letter-spacing: .04em; color: var(--kinari); background: var(--urushi); border: .5mm solid var(--kin); outline: .5mm solid var(--urushi); padding: 1mm 5mm 1.4mm; white-space: nowrap; }
-  .lead { font-size: 8.6pt; }
-  .lead b { font-size: 10.5pt; font-family: Consolas, 'Courier New', monospace; letter-spacing: .02em; }
-  .lead small { display: block; color: var(--usuzumi); font-size: 7.8pt; }
+  .maku { height: 8mm; flex: none; background: var(--maku); border-bottom: 1mm solid var(--urushi); }
+  header { flex: none; display: flex; align-items: center; gap: 4mm; padding: 3mm 10mm 2.6mm; border-bottom: .4mm solid var(--kogecha); }
+  h1 { margin: 0; font-family: var(--fude); font-weight: 400; font-size: 16pt; letter-spacing: .03em; color: var(--kinari); background: var(--urushi); border: .5mm solid var(--kin); outline: .5mm solid var(--urushi); padding: 1mm 5mm 1.5mm; white-space: nowrap; }
+  h1 small { font-size: 12pt; color: var(--kin); margin-left: 1.5mm; }
+  .hd-right { margin-left: auto; text-align: right; line-height: 1.3; }
+  .pno { display: inline-block; font-family: var(--fude); font-size: 13pt; color: var(--kinari); background: var(--shu); border: .4mm solid #7f2112; padding: 0 3mm .4mm; }
+  .hd-url { display: block; margin-top: 1mm; font-family: var(--mono); font-size: 9pt; font-weight: 700; }
 
-  main { flex: 1; min-height: 0; padding: 2.6mm 8mm 0; display: grid; grid-template-columns: 1.12fr 1fr; grid-template-rows: auto 1fr; gap: 2.6mm 3.5mm; }
-  section { border: .35mm solid var(--kogecha); background: #fbf6e9; padding: 0 3.2mm 2.4mm; position: relative; }
-  h2 { display: inline-block; margin: 0 0 1.6mm -3.2mm; font-family: var(--fude); font-weight: 400; font-size: 10.5pt; color: var(--kinari); background: var(--urushi); padding: .3mm 4.5mm .7mm 3.2mm; letter-spacing: .06em; }
-  h2 small { font-family: var(--body); font-size: 7.6pt; font-weight: 500; margin-left: 2mm; color: var(--kin); letter-spacing: 0; }
-  h3 { margin: 1.3mm 0 .7mm; font-size: 8.2pt; font-weight: 700; color: var(--shu); border-bottom: .25mm solid var(--kaki); padding-bottom: .3mm; }
-  ol { margin: 0; padding: 0; list-style: none; counter-reset: n; }
-  ol > li { counter-increment: n; position: relative; padding-left: 5.2mm; margin-bottom: .75mm; }
-  ol > li::before { content: counter(n); position: absolute; left: 0; top: .35mm; width: 3.8mm; height: 3.8mm; border-radius: 50%; background: var(--shu); color: var(--kinari); font-size: 7.2pt; font-weight: 700; line-height: 3.8mm; text-align: center; }
-  ul { margin: 0; padding-left: 3.6mm; }
-  ul li { margin-bottom: .4mm; }
+  main { flex: 1; min-height: 0; padding: 4mm 10mm 0; display: flex; flex-direction: column; gap: 3.6mm; }
+  .lead { margin: 0; font-size: 10pt; }
+  .row { display: grid; gap: 5mm; align-items: start; }
+  section { border: .35mm solid var(--kogecha); background: #fbf6e9; padding: 0 4mm 3mm; }
+  h2 { display: inline-block; margin: 0 0 2mm -4mm; font-family: var(--fude); font-weight: 400; font-size: 12pt; color: var(--kinari); background: var(--urushi); padding: .4mm 5mm .8mm 4mm; letter-spacing: .06em; }
+  h2 small { font-family: var(--body); font-size: 8.5pt; font-weight: 500; margin-left: 2mm; color: var(--kin); letter-spacing: 0; }
+
+  /* 手順（朱の丸数字） */
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: n; }
+  ol.steps[start="3"] { counter-reset: n 2; }
+  ol.steps[start="5"] { counter-reset: n 4; }
+  ol.steps > li { counter-increment: n; position: relative; padding-left: 7.2mm; margin-bottom: 1.6mm; }
+  ol.steps > li::before { content: counter(n); position: absolute; left: 0; top: .2mm; width: 5.2mm; height: 5.2mm; border-radius: 50%; background: var(--shu); color: var(--kinari); font-size: 9pt; font-weight: 700; line-height: 5.2mm; text-align: center; }
+  ol.steps > li > b:first-child { font-size: 10.5pt; }
+  .sub { display: block; color: var(--usuzumi); font-size: 9pt; margin-top: .2mm; line-height: 1.45; }
+  ul { margin: 0; padding-left: 4mm; }
+  ul li { margin-bottom: 1mm; }
   ul li::marker { color: var(--kaki); }
-  .k { display: inline-block; font-weight: 700; background: var(--kifuda); border: .25mm solid #a9895a; padding: 0 1.2mm; line-height: 1.38; white-space: nowrap; }
+  .k { display: inline-block; font-weight: 700; background: var(--kifuda); border: .25mm solid #a9895a; padding: 0 1.2mm; line-height: 1.3; white-space: nowrap; }
   .k.shu { background: var(--shu); border-color: #7f2112; color: var(--kinari); }
-  code { font-family: Consolas, 'Courier New', monospace; font-size: 7.8pt; background: #efe3c4; padding: 0 1mm; border: .2mm solid #cdb98c; }
-  .note { margin-top: 1.1mm; padding: .8mm 2mm; background: #f1e6c9; border-left: 1mm solid var(--murasaki); font-size: 7.9pt; }
+  code { font-family: var(--mono); font-size: 9pt; background: #efe3c4; padding: 0 1mm; border: .2mm solid #cdb98c; }
+  .note { padding: 1.5mm 3mm; background: #f1e6c9; border-left: 1.2mm solid var(--murasaki); font-size: 9.5pt; }
   .note b { color: var(--murasaki); }
 
-  /* OBS（全幅） */
-  .obs { grid-column: 1 / -1; display: grid; grid-template-columns: 1.3fr 1fr; gap: 0 4mm; align-content: start; border-width: .6mm; border-color: var(--urushi); }
-  .obs h2 { grid-column: 1 / -1; justify-self: start; }
-  .obs h3:first-of-type { margin-top: 0; }
-  .url { margin: .8mm 0 1.2mm; padding: 1mm 2mm; background: var(--urushi); color: var(--kinari); font-family: Consolas, 'Courier New', monospace; font-size: 7.7pt; border: .3mm solid var(--kin); word-break: break-all; }
-  .url em { font-style: normal; color: #f0b25d; }
-  table { width: 100%; border-collapse: collapse; font-size: 7.8pt; }
-  th, td { border: .25mm solid #bfa878; padding: .55mm 1.3mm; vertical-align: top; text-align: left; }
-  th { width: 31%; background: #efe0bd; font-weight: 700; }
-  .set { margin: .8mm 0 0; padding: 0; list-style: none; }
-  .set li { padding-left: 4mm; position: relative; margin-bottom: .55mm; }
-  .set li::before { content: ''; position: absolute; left: .6mm; top: 1.55mm; width: 1.7mm; height: 1.7mm; background: var(--moegi); }
-  .set li.no::before { background: none; border: .35mm solid var(--shu); }
-  .ab { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; margin-top: .8mm; }
-  .ab div { border: .25mm solid #bfa878; background: #f6edd6; padding: .8mm 1.5mm; font-size: 7.8pt; }
-  .ab b.t { display: block; color: var(--shu); }
-  footer { flex: none; margin-top: 2.2mm; height: 4mm; background: repeating-linear-gradient(90deg, #1c1a19 0 9mm, var(--moegi) 9mm 18mm, var(--kaki) 18mm 27mm); border-top: .8mm solid var(--urushi); }
+  /* スクリーンショットと重ねるマーカー（位置は画像に対する %） */
+  figure { margin: 0; }
+  .fig { position: relative; border: .5mm solid var(--urushi); background: #fff; line-height: 0; }
+  .fig img { display: block; width: 100%; height: auto; }
+  figcaption { margin-top: 1mm; font-size: 8.5pt; color: var(--usuzumi); line-height: 1.4; }
+  .m { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); width: 5.8mm; height: 5.8mm; border-radius: 50%; background: var(--shu); color: var(--kinari); border: .55mm solid var(--kinari); box-shadow: 0 0 0 .35mm var(--shu), 0 .6mm 1.4mm rgba(0, 0, 0, .45); font: 700 10pt/4.7mm var(--body); text-align: center; }
+  .tag { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); background: var(--urushi); color: var(--kinari); border: .35mm solid var(--kin); font: 700 8.5pt/1.3 var(--body); padding: .3mm 1.6mm .5mm; white-space: nowrap; box-shadow: 0 .5mm 1.2mm rgba(0, 0, 0, .45); }
+  .tag.shu { background: var(--shu); border-color: var(--kinari); }
+  .ti { display: inline-block; background: var(--shu); color: var(--kinari); font-size: 8.5pt; font-weight: 700; padding: 0 1.4mm; line-height: 1.45; margin-right: .8mm; }
 
+  table { width: 100%; border-collapse: collapse; font-size: 9.2pt; line-height: 1.45; }
+  th, td { border: .25mm solid #bfa878; padding: .8mm 1.8mm; vertical-align: top; text-align: left; }
+  th { width: 34%; background: #efe0bd; font-weight: 700; }
+  .feat { display: grid; grid-template-columns: 1fr 1fr; gap: 0 6mm; }
+  footer { flex: none; margin-top: auto; height: 4.5mm; background: var(--maku); border-top: .8mm solid var(--urushi); }
+  main + footer { margin-top: 3mm; }
+
+  /* ---- 1枚目 ---- */
+  .p1-top { grid-template-columns: 96mm 1fr; }
+
+  /* ---- 2枚目 ---- */
+  .p2-top { grid-template-columns: 100mm 1fr; }
+  .phones { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
+  .phones .fig { border-radius: 2.5mm; overflow: hidden; border-width: .8mm; }
+
+  /* ---- 3枚目 ---- */
+  #stage main { gap: 2.4mm; font-size: 9.5pt; line-height: 1.45; padding-top: 3mm; }
+  #stage section { padding-bottom: 2.4mm; }
+  #stage h2 { margin-bottom: 1.6mm; }
+  #stage ol.steps > li { margin-bottom: 1.2mm; }
+  #stage .tag { font-size: 7.6pt; padding: .1mm 1.2mm .3mm; }
+  #stage table { font-size: 9pt; line-height: 1.4; }
+  #stage th, #stage td { padding: .5mm 1.8mm; }
+  .p3-top { grid-template-columns: 68mm 1fr; }
+  .parts { margin: 0; padding: 0; list-style: none; font-size: 9.3pt; line-height: 1.4; }
+  .parts li { margin-bottom: .4mm; }
+  .p3-mid { grid-template-columns: 1fr 65mm; gap: 4mm; }
+  .chk { margin: .6mm 0 0; padding: 0; list-style: none; }
+  .chk li { position: relative; padding-left: 6.4mm; margin-bottom: .6mm; font-size: 9.4pt; line-height: 1.45; }
+  .chk li .kt { position: absolute; left: 0; top: .2mm; }
+  .yes, .no { white-space: nowrap; font-weight: 700; padding: 0 1mm; color: #fff; font-size: 8.8pt; }
+  .yes { background: var(--moegi); }
+  .no { background: var(--shu); }
+  .kt { display: inline-block; width: 4.6mm; height: 4.6mm; background: var(--urushi); color: var(--kin); border: .3mm solid var(--kin); font-size: 8pt; font-weight: 700; line-height: 4.1mm; text-align: center; font-family: var(--body); }
+  .ab { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm; margin-top: .8mm; }
+  .ab div { border: .25mm solid #bfa878; background: #f6edd6; padding: .8mm 2mm; font-size: 9.2pt; line-height: 1.4; }
+  .ab b.t { display: block; color: var(--shu); }
+  .url { margin: 1.6mm 0 0; padding: .9mm 3mm; background: var(--urushi); color: var(--kinari); font-family: var(--mono); font-size: 10pt; border: .3mm solid var(--kin); display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4mm; }
+  .url em { font-style: normal; color: #f0b25d; }
+  .url small { font-family: var(--body); font-size: 8.5pt; color: var(--kin); }
+  .opts { display: flex; flex-wrap: wrap; gap: 0 6mm; margin-top: 1.2mm; font-size: 9.3pt; }
+  .trouble th { width: 30%; }
+
+  /* OBS 設定画面の模式図（本物ではなくイメージ） */
+  .obs { border: .4mm solid #3a3d44; background: #272a30; color: #e6e7ea; font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', sans-serif; font-size: 7.4pt; line-height: 1.25; }
+  .obs-title { background: #1d1f24; padding: 1mm 2.4mm; font-size: 8pt; display: flex; justify-content: space-between; }
+  .obs-title i { font-style: normal; color: #f0b25d; font-size: 7.6pt; }
+  .obs-body { padding: 1.4mm 2mm 1.5mm 1.4mm; display: grid; grid-template-columns: 4.6mm 12mm 1fr; gap: .7mm 1.3mm; align-items: center; }
+  .obs-body > .kt { grid-column: 1; }
+  .obs-body .l { grid-column: 2; text-align: right; color: #c5c7cc; white-space: nowrap; }
+  .obs-in { grid-column: 3; background: #1b1d21; border: .25mm solid #4b4f58; padding: .4mm 1.4mm; font-family: var(--mono); font-size: 7pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .obs-in.short { width: 15mm; }
+  .obs-cb { grid-column: 3; display: flex; align-items: flex-start; gap: 1.4mm; padding: .2mm .6mm; }
+  .obs-cb .box { flex: none; width: 2.8mm; height: 2.8mm; margin-top: .2mm; border: .3mm solid #8b8f99; background: #1b1d21; position: relative; }
+  .obs-cb.on .box { background: #3c78d8; border-color: #3c78d8; }
+  .obs-cb.on .box::after { content: ''; position: absolute; left: .8mm; top: .15mm; width: .8mm; height: 1.5mm; border: solid #fff; border-width: 0 .35mm .35mm 0; transform: rotate(45deg); }
+  .obs-cb.bad { outline: .45mm solid #e0583f; }
+  .obs-cb.good { outline: .45mm solid #4fae78; }
+  .obs-css { grid-column: 3; height: 5mm; background: #1b1d21; border: .25mm solid #4b4f58; font-family: var(--mono); font-size: 6.4pt; color: #8b8f99; padding: .4mm 1.2mm; overflow: hidden; }
+  .obs-btn { grid-column: 3; justify-self: start; background: #3b3f47; border: .25mm solid #5a5f69; padding: .5mm 2.4mm; }
+  .obs-foot { display: flex; justify-content: flex-end; gap: 1.6mm; padding: 1.2mm 2.2mm; border-top: .25mm solid #3a3d44; }
+  .obs-foot span { background: #3b3f47; border: .25mm solid #5a5f69; padding: .4mm 3.4mm; }
+  .obs-foot span.ok { background: #3c78d8; border-color: #3c78d8; }
+  .obs-note { margin: 1mm 0 0; padding-left: 7.2mm; }
+  .p3-mid > div { min-width: 0; }
+  .obs-legend { display: flex; flex-wrap: wrap; gap: 0 3mm; margin-top: 1mm; font-size: 8.3pt; color: var(--usuzumi); }
+  .obs-legend span::before { content: ''; display: inline-block; width: 2.6mm; height: 2.6mm; margin-right: 1mm; vertical-align: -.3mm; border: .45mm solid; }
+  .obs-legend .lg-y::before { border-color: #4fae78; }
+  .obs-legend .lg-n::before { border-color: #e0583f; }
+
+  /* ---- スマホなど幅の狭い画面：1カラムの読み物にする ---- */
   @media screen and (max-width: 820px) {
-    html { background: var(--shiraki); }
-    .sheet { width: auto; height: auto; overflow: visible; }
-    body { font-size: 14px; }
-    main, .obs, .ab { display: block; }
-    section { margin-bottom: 12px; }
-    header { flex-wrap: wrap; }
-    code, .url, table { font-size: 13px; }
+    html:not(.paper) { background: var(--shiraki); }
+    html:not(.paper) body { font-size: 15px; }
+    html:not(.paper) .sheet { width: auto; height: auto; margin: 0 0 18px; overflow: visible; box-shadow: none; }
+    html:not(.paper) header { flex-wrap: wrap; padding: 10px 16px; }
+    html:not(.paper) h1 { white-space: normal; font-size: 20px; }
+    html:not(.paper) h1 small { display: block; margin: 0; font-size: 15px; }
+    html:not(.paper) .hd-right { margin-left: 0; text-align: left; }
+    html:not(.paper) main { padding: 12px 16px 0; }
+    html:not(.paper) .row, html:not(.paper) .feat, html:not(.paper) .ab { display: block; }
+    html:not(.paper) .row > * + *, html:not(.paper) .ab > * + * { margin-top: 12px; }
+    html:not(.paper) .phones { gap: 8px; }
+    html:not(.paper) code, html:not(.paper) .url, html:not(.paper) table, html:not(.paper) .parts, html:not(.paper) .chk li, html:not(.paper) .ab div { font-size: 14px; }
+    html:not(.paper) .m { width: 24px; height: 24px; font-size: 13px; line-height: 20px; border-width: 2px; }
+    html:not(.paper) .tag { font-size: 11px; }
+    html:not(.paper) .obs { font-size: 12px; max-width: 420px; }
+    html:not(.paper) .obs-body { grid-template-columns: 18px 60px 1fr; }
+    html:not(.paper) .obs-in { font-size: 11px; }
+    html:not(.paper) .obs-in.short { width: 60px; }
+    html:not(.paper) .kt { width: 18px; height: 18px; line-height: 16px; font-size: 12px; }
+    html:not(.paper) .chk li { padding-left: 26px; }
   }
-  @media print { html { background: none; } }
+  html.paper .nav { display: none; }
+  @media print {
+    html { background: none; }
+    .nav { display: none; }
+    .sheet { margin: 0; box-shadow: none; }
+  }
 </style>
 </head>
 <body>
-<div class="sheet">
+<nav class="nav"><a href="#mc">MC</a><a href="#player">回答者</a><a href="#stage">ステージ</a></nav>
+
+<!-- ======================= 1枚目：MC ======================= -->
+<div class="sheet" id="mc">
   <div class="maku"></div>
   <header>
-    <h1>オンライン大喜利 使い方</h1>
-    <div class="lead">
-      <b>https://shaaaape.github.io/ogiri/</b>
-      <small>インストール不要。MC（席亭）・回答者・ステージ（配信画面）の3つの画面を、すべてこのURLから開きます。</small>
-    </div>
+    <h1>オンライン大喜利 使い方<small>― MC（席亭）編</small></h1>
+    <div class="hd-right"><span class="pno">1/3</span><span class="hd-url">https://shaaaape.github.io/ogiri/</span></div>
   </header>
-
   <main>
+    <p class="lead">MCは進行役で<b>部屋の主</b>。MCのブラウザが部屋になり、回答者とステージ（配信画面）がそこへつながります（PC推奨）。</p>
+    <div class="row p1-top">
+      <figure>
+        <div class="fig">
+          <img src="guide/mc.jpg" alt="MC画面のスクリーンショット">
+          <span class="m" style="--x:7.5%;--y:6%">1</span>
+          <span class="m" style="--x:30.8%;--y:8.6%">2</span>
+          <span class="m" style="--x:29.4%;--y:17%">3</span>
+          <span class="m" style="--x:13.8%;--y:39.5%">3</span>
+          <span class="m" style="--x:38.6%;--y:51%">4</span>
+          <span class="m" style="--x:76.6%;--y:24.8%">4</span>
+          <span class="m" style="--x:75%;--y:54.5%">5</span>
+          <span class="m" style="--x:13.5%;--y:86.5%">8</span>
+          <span class="tag" style="--x:9%;--y:64%">縦3本線</span>
+          <span class="tag" style="--x:87.5%;--y:8.2%">タイマー</span>
+          <span class="tag" style="--x:87.5%;--y:33.6%">SEパッド</span>
+        </div>
+        <figcaption>MC画面（PC）。たろうは提出済み、はなこは記入中で挙手①、回答履歴に1件。丸数字は右の手順の番号です。</figcaption>
+        <div class="note" style="margin-top:4mm"><b>注意</b>　MCのタブを閉じる・PCがスリープすると<b>部屋が消えます</b>。遊んでいる間は開いたままに。再読み込みなら同じ部屋コードで復帰し、回答者も自動でつながり直します。席亭の名前は、左上の「MC」の横の「変更」から変えられます。</div>
+      </figure>
+      <section>
+        <h2>進め方</h2>
+        <ol class="steps">
+          <li><b>部屋を作る</b>：URLを開いて <span class="k shu">部屋を作る（MC）</span>。左上に<b>部屋コード（4文字）</b>が出ます。</li>
+          <li><b>回答者を呼ぶ</b>：<span class="k">参加用URLをコピー</span> を押し、Discordなどに貼って送ります。</li>
+          <li><b>お題を出す</b>：お題を入力して <span class="k shu">出題</span>。リストから選ぶなら <span class="k">ランダム出題</span>。<span class="sub">出題の瞬間に「ドドン」が鳴り、全員のフリップ・挙手・回答履歴がリセットされます。</span></li>
+          <li><b>様子を見る</b>：参加者カードの提灯と札で状態がわかります（待機中→記入中→提出済み）。手を挙げた人は「挙手順」に押した順で並びます。</li>
+          <li><b>指名する</b>：発表させたい人の <span class="k">ステージへ</span>。配信画面の中央に、その人の裏向きのフリップが出ます。</li>
+          <li><b>めくる</b>：本人が自分の画面でめくって発表。めくれないときは、呼んだ人のカードに出る <span class="k shu">オープン（MC側で）</span>。</li>
+          <li><b>下げる</b>：終わったら <span class="k">下げる</span>。その人のフリップは白紙に戻り、次の回答を書けます。</li>
+          <li><b>くり返す</b>：下げた回答は「回答履歴」に残ります。⑤〜⑦をくり返し、区切りがついたら③で次のお題へ。</li>
+        </ol>
+      </section>
+    </div>
+
     <section>
-      <h2>MC（席亭）<small>進行役・部屋の主</small></h2>
-      <ol>
-        <li>URLを開いて <span class="k shu">部屋を作る（MC）</span>。左上に<b>部屋コード（4文字）</b>が出ます。</li>
-        <li><span class="k">参加用URLをコピー</span> を押し、Discordに貼って回答者に送ります。</li>
-        <li>お題を入力して <span class="k shu">出題</span>（リストから選ぶなら <span class="k">ランダム出題</span>）。出題の瞬間に「ドドン」が鳴り、全員のフリップ・挙手・回答履歴がリセットされます。</li>
-        <li>参加者カードの提灯と札で状態を確認します（待機中 → 記入中 → 提出済み）。挙手した人は「挙手順」に押した順で並びます。</li>
-        <li>発表させたい人の <span class="k">ステージへ</span> を押すと、配信画面の中央にその人の座布団（裏向きのフリップ）が出ます。</li>
-        <li>本人がフリップをめくって発表。終わったら <span class="k">下げる</span>。回答は「回答履歴」に残り、その人は次の回答を書けます。5〜6をくり返し、区切りで次のお題へ。</li>
-      </ol>
-      <h3>覚えておくと便利</h3>
+      <h2>覚えておくと便利</h2>
+      <div class="feat">
+        <ul>
+          <li><b>MCも回答できる</b>：「自分の回答」に書いて <span class="k">提出する</span>、自分のカードの <span class="k">ステージへ</span>。回答しないときは「自分も回答する」のチェックを外します。</li>
+          <li><b>並び替え</b>：カード左の<b>縦3本線</b>をドラッグ。配信画面の提灯の並びも同じ順に変わります。</li>
+          <li><b>MCの交代</b>：相手のカードの <span class="k">MCを渡す</span>。部屋コード・お題・回答履歴はそのまま引き継がれます。</li>
+          <li><b>シンキングタイマー</b>：秒数を入れて「スタート」。残り秒は全員の画面と配信画面に出ます。</li>
+        </ul>
+        <ul>
+          <li><b>SEパッド</b>：ボタンを押すと全員の画面で効果音が鳴ります。「mp3を追加」で自分の音も足せます。</li>
+          <li><b>自動で鳴らす音</b>：「出題時に鳴らす」「オープン時に鳴らす」「0秒で鳴らす」で選べます（「鳴らさない」も可）。</li>
+          <li><span class="k">全部クリア（次の回へ）</span>：全員のフリップを白紙に戻します（回答履歴は残ります）。</li>
+          <li><span class="k">挙手リセット</span>：全員の挙手を下ろします。</li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+  <footer></footer>
+</div>
+
+<!-- ======================= 2枚目：回答者 ======================= -->
+<div class="sheet" id="player">
+  <div class="maku"></div>
+  <header>
+    <h1>オンライン大喜利 使い方<small>― 回答者編</small></h1>
+    <div class="hd-right"><span class="pno">2/3</span><span class="hd-url">https://shaaaape.github.io/ogiri/</span></div>
+  </header>
+  <main>
+    <p class="lead">スマホでもPCでも遊べます。インストールもアカウント登録もいりません。MCから届いたURLを開くだけです。</p>
+    <div class="row p2-top">
+      <figure>
+        <div class="phones">
+          <div class="fig">
+            <img src="guide/player.jpg" alt="回答者画面（手書き中）">
+            <span class="m" style="--x:54%;--y:7%">2</span>
+            <span class="m" style="--x:8%;--y:28.2%">3</span>
+            <span class="m" style="--x:50%;--y:77.3%">3</span>
+            <span class="m" style="--x:8%;--y:95.6%">4</span>
+            <span class="m" style="--x:57%;--y:95.6%">5</span>
+          </div>
+          <div class="fig">
+            <img src="guide/player-turn.jpg" alt="回答者画面（あなたの番です！）">
+            <span class="m" style="--x:12%;--y:44.5%">6</span>
+            <span class="tag" style="--x:72%;--y:12.3%">タイマー</span>
+            <span class="tag shu" style="--x:86%;--y:3.6%">消音</span>
+          </div>
+        </div>
+        <figcaption>左：手書きで記入中（挙手中①）。右：MCに呼ばれたとき。丸数字は右の手順の番号です。</figcaption>
+      </figure>
+      <section>
+        <h2>遊び方</h2>
+        <ol class="steps">
+          <li><b>URLを開く</b>：MCから届いたURLをタップ。部屋コードが入った状態で開きます。</li>
+          <li><b>入室する</b>：名前を入れて <span class="k shu">入室する</span>。名前は次回も覚えています。</li>
+          <li><b>書く</b>：<span class="k">手書き</span> か <span class="k">文字</span> を選んで回答を書きます。<span class="sub">手書きはペン色3種（黒・朱・藍）、太さ3段階、消しゴム、戻す、全消し。全消ししても「戻す」で元に戻せます。</span></li>
+          <li><b>出す</b>：書けたら <span class="k shu">提出する</span>。直したいときは <span class="k">書き直す</span>。</li>
+          <li><b>手を挙げる</b>：答えたいときは <span class="k">挙手</span>。「挙手中 ①」のように順番が出ます。もう一度押すと取り下げ。</li>
+          <li><b>発表する</b>：MCに呼ばれると「あなたの番です！」と出ます。しゃべるタイミングに合わせて <span class="k shu">フリップをオープン！</span></li>
+          <li><b>次の回答へ</b>：MCが下げるとフリップが白紙に戻ります。同じお題で次の回答を書けます。</li>
+        </ol>
+      </section>
+    </div>
+
+    <section>
+      <h2>知っておくこと</h2>
       <ul>
-        <li><b>自分も回答</b>：「自分の回答」欄に書いて、自分のカードの「ステージへ」。</li>
-        <li><b>並び替え</b>：カード左の縦3本線をドラッグ。配信画面の提灯の順番も変わります。</li>
-        <li><b>MCの交代</b>：相手のカードの「MCを渡す」。部屋コードはそのままです。</li>
-        <li><b>本人がめくれないとき</b>：カードの「オープン（MC側で）」で代わりにめくれます。</li>
-        <li><b>タイマー・SE</b>：残り秒も効果音も、全員の画面に出ます。</li>
+        <li>配信画面に出るのは、<b>呼ばれて自分でオープンした回答だけ</b>です。書いている途中の内容は<b>MCにだけ</b>見えています。</li>
+        <li>シンキングタイマー（「残り○秒」）と効果音は自分の画面にも出ます。音がうるさいときは右上の<b>スピーカーのアイコン</b>で消音できます。</li>
       </ul>
-      <div class="note"><b>注意</b>　MCのタブを閉じると部屋が消えます。再読み込みは同じ部屋コードで復帰でき、回答者は自動でつながり直します。</div>
     </section>
 
     <section>
-      <h2>回答者<small>スマホでもPCでも</small></h2>
-      <ol>
-        <li>MCから届いたURLを開き、名前を入れて <span class="k shu">入室する</span>。</li>
-        <li><span class="k">手書き</span> か <span class="k">文字</span> を選んで回答を書きます。手書きは色3種・太さ3段階・消しゴム・戻す・全消し。全消ししても「戻す」で元に戻せます。</li>
-        <li>書けたら <span class="k shu">提出する</span>。直したいときは <span class="k">書き直す</span>。</li>
-        <li>発表したいときは <span class="k">挙手</span>（もう一度押すと取り下げ）。</li>
-        <li>MCに呼ばれると「あなたの番です！」と出ます。喋るタイミングに合わせて <span class="k shu">フリップをオープン！</span></li>
-        <li>MCが下げるとフリップが白紙に戻るので、同じお題で次の回答を書けます。</li>
-      </ol>
-      <h3>困ったとき</h3>
-      <ul>
-        <li><b>開けない・動かない</b>：LINEやDiscordの中で開いたページでは動かないことがあります。メニューの「ブラウザで開く」でChromeかSafariに切り替えてください。</li>
-        <li><b>「部屋が見つかりません」</b>：MCが部屋を作り直しています。新しいURLをもらってください。</li>
-        <li><b>回線が切れた</b>：3秒ごとに自動で再接続します。書いた内容は残ります。</li>
-        <li><b>音・名前</b>：右上のスピーカーで効果音を消せます。名前は横の「変更」から。</li>
-              </ul>
-      <div class="note"><b>コツ</b>　配信画面に出るのは、呼ばれて自分でオープンした回答だけです。書いている途中の内容はMCにだけ見えています。</div>
+      <h2>困ったとき</h2>
+      <table>
+        <tr><th>開けない・ボタンが反応しない</th><td>LINEやDiscordの中で開いたページ（アプリ内ブラウザ）では動かないことがあります。メニューの「<b>ブラウザで開く</b>」で Chrome や Safari に切り替えてください。</td></tr>
+        <tr><th>「部屋が見つかりません」</th><td>MCが部屋を作り直して、部屋コードが変わっています。MCに<b>新しいURL</b>をもらってください。</td></tr>
+        <tr><th>「MCと直接つながりません」</th><td>回線の相性で直接つなげない状態です。スマホなら<b>Wi-Fiとモバイル回線を切り替え</b>てみてください。</td></tr>
+        <tr><th>回線が切れた</th><td>3秒ごとに自動で再接続します。書いた内容は残っています。</td></tr>
+        <tr><th>名前を変えたい</th><td>画面上の自分の名前の横の「変更」をタップ。</td></tr>
+      </table>
     </section>
+  </main>
+  <footer></footer>
+</div>
 
-    <section class="obs">
-      <h2>ステージ（配信画面）をOBSに映す<small>ここが一番つまずきやすいので順番どおりに</small></h2>
-      <div>
-        <h3>手順　※先にMCが部屋を作っておく（URLに部屋コードが入るため）</h3>
-        <ol>
+<!-- ======================= 3枚目：ステージ（OBS） ======================= -->
+<div class="sheet" id="stage">
+  <div class="maku"></div>
+  <header>
+    <h1>オンライン大喜利 使い方<small>― ステージ（OBS）編</small></h1>
+    <div class="hd-right"><span class="pno">3/3</span><span class="hd-url">https://shaaaape.github.io/ogiri/</span></div>
+  </header>
+  <main>
+    <div class="row p3-top">
+      <figure>
+        <div class="fig">
+          <img src="guide/stage.jpg" alt="ステージ（配信画面）のスクリーンショット">
+          <span class="tag shu" style="--x:29%;--y:17%">提灯</span>
+          <span class="tag shu" style="--x:26%;--y:35.5%">看板</span>
+          <span class="tag shu" style="--x:34%;--y:46%">フリップ</span>
+          <span class="tag shu" style="--x:73.8%;--y:49%">名前札</span>
+          <span class="tag shu" style="--x:85%;--y:23%">タイマー</span>
+        </div>
+      </figure>
+      <section>
+        <h2>画面の見かた<small>ステージ画面（1920×1080）</small></h2>
+        <ul class="parts">
+          <li><span class="ti">提灯</span>参加者。状態で明るさが変わり、挙手した人には札が下がります。</li>
+          <li><span class="ti">看板</span>いまのお題。</li>
+          <li><span class="ti">フリップ</span>呼ばれた人の回答。めくる前は紫の座布団（裏向き）。</li>
+          <li><span class="ti">名前札</span>右の白い札（めくり）に発表中の人の名前。</li>
+          <li><span class="ti">タイマー</span>右上の木札に残り秒。</li>
+        </ul>
+      </section>
+    </div>
+
+    <section>
+      <h2>OBSに映す手順<small>先にMCが部屋を作っておく（URLに部屋コードが入るため）</small></h2>
+      <div class="row p3-mid">
+        <div>
+        <ol class="steps">
           <li>MC画面の上にある <span class="k">ステージURLをコピー</span> を押します。</li>
-          <li>OBSの「ソース」欄の <b>＋</b> →「<b>ブラウザ</b>」→「新規作成」に名前（例：大喜利ステージ）を入れて OK。</li>
-          <li>開いた設定画面を次のとおりにして OK。
-            <ul class="set">
-              <li><b>URL</b>：最初から入っている文字を全部消して、コピーしたURLを貼り付け</li>
-              <li><b>幅 1920 ／ 高さ 1080</b>（違うと文字が小さくなったり切れたりします）</li>
-              <li class="no">「ローカルファイル」はチェック<b>しない</b></li>
-              <li class="no">「表示されていないときにソースをシャットダウン」「シーンがアクティブになったときにブラウザの表示を更新」はどちらもチェック<b>しない</b>（シーンを切り替えるたびに接続し直すのを防ぐ）</li>
-              <li>「カスタムCSS」は触らずそのまま</li>
+          <li>OBSの「<b>ソース</b>」欄の <b>＋</b> →「<b>ブラウザ</b>」→「新規作成」に名前（例：大喜利ステージ）を入れて <b>OK</b>。</li>
+          <li>開いた設定画面を次のとおりにして <b>OK</b>（右の図の記号と対応）。
+            <ul class="chk">
+              <li><span class="kt">ア</span>「URL」：入っている文字を<b>全部消して</b>、コピーしたURLを貼る</li>
+              <li><span class="kt">イ</span>「幅」<b>1920</b>／「高さ」<b>1080</b></li>
+              <li><span class="kt">ウ</span>「ローカルファイル」は <span class="no">チェックしない</span></li>
+              <li><span class="kt">エ</span>「表示されていないときにソースをシャットダウン」と「シーンがアクティブになったときにブラウザの表示を更新」は <span class="no">チェックしない</span>（シーン切り替えのたびに接続し直すのを防ぐ）</li>
+              <li><span class="kt">オ</span>「カスタムCSS」は触らずそのまま</li>
             </ul>
           </li>
-          <li>プレビューに寄席の舞台が出れば成功です。大きさが合わないときは、ソースを右クリック →「変換」→「画面に合わせる」（Ctrl＋F）。</li>
-          <li>効果音の設定を、自分のOBSに合わせて<b>どちらか1つ</b>選びます。
-            <div class="ab">
-              <div><b class="t">A　デスクトップ音声を配信に乗せている（多くはこちら）</b>MC画面の音がそのまま乗るので、二重に鳴らないようURLの最後に <code>&amp;mute=1</code> を足す。</div>
-              <div><b class="t">B　デスクトップ音声を乗せていない</b><code>&amp;mute=1</code> は付けず、「OBSで音声を制御する」にチェックして音声ミキサーで音量調整。</div>
-            </div>
-          </li>
+          <li>プレビューに寄席の舞台が出れば成功。大きさが合わないときは、ソースを右クリック →「変換」→「<b>画面に合わせる</b>」（Ctrl＋F）。</li>
         </ol>
-        <div class="url">https://shaaaape.github.io/ogiri/?room=<em>AB7K</em>&amp;stage=1<em>&amp;mute=1</em>　← Aの場合の例（AB7Kは部屋コード）</div>
+        <p class="sub obs-note">※右の図は本物の画面ではなく<b>イメージ図</b>です。OBSのバージョンによって並びや表記が少し違うことがあります。</p>
+        </div>
+        <figure>
+          <div class="obs">
+            <div class="obs-title"><span>ブラウザ のプロパティ</span><i>イメージ図</i></div>
+            <div class="obs-body">
+              <span class="kt">ウ</span><span class="obs-cb bad"><span class="box"></span>ローカルファイル</span>
+              <span class="kt">ア</span><span class="l">URL</span><span class="obs-in">https://shaaaape.github.io/ogiri/?room=AB7K&amp;stage=1&amp;mute=1</span>
+              <span class="kt">イ</span><span class="l">幅</span><span class="obs-in short">1920</span>
+              <span class="kt">イ</span><span class="l">高さ</span><span class="obs-in short">1080</span>
+              <span class="kt">カ</span><span class="obs-cb good on"><span class="box"></span>OBSで音声を制御する</span>
+              <span class="obs-cb" style="grid-column:3"><span class="box"></span>カスタムフレームレートを使用</span>
+              <span class="kt">オ</span><span class="l">カスタムCSS</span><span class="obs-css">body { background-color: rgba(0, 0, 0, 0); margin: 0px auto; overflow: hidden; }</span>
+              <span class="kt">エ</span><span class="obs-cb bad"><span class="box"></span>表示されていないときにソースをシャットダウン</span>
+              <span class="kt">エ</span><span class="obs-cb bad"><span class="box"></span>シーンがアクティブになったときにブラウザの表示を更新</span>
+              <span class="obs-btn">現在のページのキャッシュを更新</span>
+            </div>
+            <div class="obs-foot"><span>デフォルト</span><span class="ok">OK</span><span>キャンセル</span></div>
+          </div>
+          <div class="obs-legend"><span class="lg-n">チェックしない</span><span class="lg-y">手順5のBのときだけチェック</span></div>
+        </figure>
       </div>
-      <div>
-        <h3>つまずきポイント</h3>
-        <table>
-          <tr><th>「部屋が見つかりません」と出る</th><td>部屋コードが変わっています。「ステージURLをコピー」し直し、ソースをダブルクリックしてURLを貼り替え。</td></tr>
-          <tr><th>真っ黒・固まった</th><td>ソースをダブルクリック → 一番下の「現在のページのキャッシュを更新」。</td></tr>
-          <tr><th>効果音が二重に聞こえる</th><td>URLの最後に <code>&amp;mute=1</code> を足す（手順5のA）。</td></tr>
-          <tr><th>効果音が配信に乗らない</th><td><code>&amp;mute=1</code> を外し、「OBSで音声を制御する」にチェック（手順5のB）。</td></tr>
-          <tr><th>文字が小さい・端が切れる</th><td>幅1920・高さ1080になっているか確認し、「画面に合わせる」。</td></tr>
-          <tr><th>参加者の表示位置</th><td>画面<b>上部の提灯</b>です。Discordのオーバーレイは上側に置き、MC画面の並び替えで順番を揃えます。</td></tr>
-          <tr><th>MCを交代した</th><td>部屋コードが同じなら何もしなくて大丈夫。数秒で自動的につながり直ります。</td></tr>
-          <tr><th>背景を抜いて重ねたい</th><td>URLの最後に <code>&amp;chroma=1</code>。ソースを右クリック →「フィルタ」→「クロマキー」（緑）。</td></tr>
-        </table>
-        <div class="note"><b>確認</b>　配信前に一度、自分をステージへ呼んで、OBSでフリップがめくれるか・音が1回だけ鳴るかを試すと安心です。</div>
-      </div>
+      <ol class="steps" start="5">
+        <li>効果音は、自分のOBSに合わせて<b>どちらか1つ</b>。
+          <div class="ab">
+            <div><b class="t">A　デスクトップ音声を配信に乗せている（多くはこちら）</b>MC画面の音がそのまま乗るので、二重に鳴らないようURLの最後に <code>&amp;mute=1</code> を足す。</div>
+            <div><b class="t">B　デスクトップ音声を乗せていない</b><code>&amp;mute=1</code> は付けずに <span class="kt">カ</span>「OBSで音声を制御する」に <span class="yes">チェック</span> し、音声ミキサーで音量を調整。</div>
+          </div>
+        </li>
+      </ol>
+      <p class="url"><span>https://shaaaape.github.io/ogiri/?room=<em>AB7K</em>&amp;stage=1<em>&amp;mute=1</em></span><small>← 完成例（Aの場合）。AB7Kは部屋コード</small></p>
+      <div class="opts"><span>付けられるオプション：</span><span><code>&amp;mute=1</code> ステージでは音を鳴らさない</span><span><code>&amp;chroma=1</code> 背景を緑にする（クロマキー用）</span></div>
     </section>
+
+    <section>
+      <h2>つまずきポイント</h2>
+      <table class="trouble">
+        <tr><th>「部屋 ○○ が見つかりません」</th><td>ステージURLをコピーし直し、ソースをダブルクリックしてURLを貼り替え。</td></tr>
+        <tr><th>真っ黒・固まった</th><td>ソースをダブルクリック → 下の「<b>現在のページのキャッシュを更新</b>」。</td></tr>
+        <tr><th>効果音が二重に聞こえる</th><td>URLの最後に <code>&amp;mute=1</code> を足す（手順5のA）。</td></tr>
+        <tr><th>効果音が配信に乗らない</th><td><code>&amp;mute=1</code> を外し、「OBSで音声を制御する」にチェック（手順5のB）。</td></tr>
+        <tr><th>文字が小さい・端が切れる</th><td>幅1920・高さ1080になっているか確認し、「画面に合わせる」。</td></tr>
+        <tr><th>参加者の表示位置</th><td>画面<b>上部の提灯</b>。Discordのオーバーレイも上側に置き、並び替えで順番を揃える。</td></tr>
+        <tr><th>MCを交代した</th><td>部屋コードが同じなら何もしなくて大丈夫。数秒で自動的につながり直します。</td></tr>
+        <tr><th>背景を抜いて重ねたい</th><td><code>&amp;chroma=1</code> を足し、右クリック →「フィルタ」で「クロマキー」（緑）を追加。</td></tr>
+      </table>
+    </section>
+
+    <div class="note"><b>配信前の確認</b>　本番の前に一度、MC画面で自分を <span class="k">ステージへ</span> 呼び、OBSでフリップがめくれるか・効果音が<b>1回だけ</b>鳴るかを試しておくと安心です。</div>
   </main>
   <footer></footer>
 </div>

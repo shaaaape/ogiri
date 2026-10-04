@@ -10,7 +10,7 @@
 **アプリのURL: https://shaaaape.github.io/ogiri/**
 （インストール不要。MC・参加者・OBSのすべてがこのURLから始まります）
 
-**使い方ガイド（A4一枚）**: [Webで見る](https://shaaaape.github.io/ogiri/guide.html) ／ [印刷用PDF](https://shaaaape.github.io/ogiri/guide.pdf)。OBSへの映し方を詳しく載せています。
+**使い方ガイド（A4 3枚: MC・回答者・ステージ）**: [Webで見る](https://shaaaape.github.io/ogiri/guide.html) ／ [印刷用PDF](https://shaaaape.github.io/ogiri/guide.pdf)。OBSへの映し方を詳しく載せています。
 
 ---
 
